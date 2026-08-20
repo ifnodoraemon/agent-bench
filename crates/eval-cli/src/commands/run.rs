@@ -9,6 +9,25 @@ use eval_suites::BenchmarkOrchestrator;
 use std::fs;
 use std::path::{Path, PathBuf};
 
+fn collect_jsonl_files(path: &Path, files: &mut Vec<PathBuf>) -> Result<()> {
+    if path.is_file() {
+        if path.extension().and_then(|s| s.to_str()) == Some("jsonl") {
+            files.push(path.to_path_buf());
+        }
+    } else if path.is_dir() {
+        for entry in fs::read_dir(path)? {
+            let entry = entry?;
+            let child_path = entry.path();
+            if child_path.is_dir() {
+                collect_jsonl_files(&child_path, files)?;
+            } else if child_path.extension().and_then(|s| s.to_str()) == Some("jsonl") {
+                files.push(child_path);
+            }
+        }
+    }
+    Ok(())
+}
+
 pub async fn execute_run(
     config_path: Option<String>,
     dataset_paths: Vec<String>,
@@ -34,15 +53,23 @@ pub async fn execute_run(
     let mut combined_dataset = Dataset::new("unified_benchmark");
     let target_paths = if !dataset_paths.is_empty() {
         dataset_paths
+    } else if Path::new("datasets").is_dir() {
+        vec!["datasets".to_string()]
     } else {
         // Look for default datasets folder
         let default_ds = vec![
             "datasets/foundation/knowledge_math.jsonl".to_string(),
             "datasets/foundation/code_generation.jsonl".to_string(),
             "datasets/foundation/instruction_following.jsonl".to_string(),
+            "datasets/foundation/long_context.jsonl".to_string(),
+            "datasets/foundation/structured_output.jsonl".to_string(),
             "datasets/agent/tool_calling.jsonl".to_string(),
+            "datasets/agent/coding_tasks.jsonl".to_string(),
+            "datasets/agent/error_recovery.jsonl".to_string(),
             "datasets/agent/multiturn_react.jsonl".to_string(),
             "datasets/safety/jailbreak_injection.jsonl".to_string(),
+            "datasets/safety/hallucination.jsonl".to_string(),
+            "datasets/safety/privacy_pii.jsonl".to_string(),
         ];
         default_ds
             .into_iter()
@@ -55,21 +82,26 @@ pub async fn execute_run(
         return Ok(());
     }
 
+    let mut all_files = Vec::new();
     for path_str in &target_paths {
         let p = Path::new(path_str);
-        if p.is_dir() {
-            for entry in fs::read_dir(p)? {
-                let entry = entry?;
-                let file_path = entry.path();
-                if file_path.extension().and_then(|s| s.to_str()) == Some("jsonl") {
-                    let ds = DatasetLoader::load_from_jsonl(&file_path)?;
-                    combined_dataset.test_cases.extend(ds.test_cases);
-                }
-            }
-        } else if p.exists() {
-            let ds = DatasetLoader::load_from_jsonl(p)?;
-            combined_dataset.test_cases.extend(ds.test_cases);
+        if !p.exists() {
+            println!("⚠️ Dataset path not found: {path_str}");
+            continue;
         }
+        collect_jsonl_files(p, &mut all_files)?;
+    }
+
+    if all_files.is_empty() {
+        println!("⚠️ No .jsonl dataset files discovered in specified paths.");
+        return Ok(());
+    }
+
+    all_files.sort();
+
+    for file_path in &all_files {
+        let ds = DatasetLoader::load_from_jsonl(file_path)?;
+        combined_dataset.test_cases.extend(ds.test_cases);
     }
 
     // Apply filtering

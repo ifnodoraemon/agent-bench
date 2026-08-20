@@ -4,10 +4,10 @@
 
 ## ✨ 核心特性
 
-- **🎯 全维度评测覆盖**：
-  - **基础能力 (Foundation)**：数学逻辑推理、IFEval 严格指令遵循、JSON Schema 格式校验、代码生成与单元测试沙箱执行。
-  - **智能体能力 (Agentic & Tool Calling)**：单步/多步工具调用（Bash、REST API、SQL DB、Web 搜索）、ReAct 规划推理、环境交互与报错自我反思纠错。
-  - **安全与鲁棒性 (Safety)**：Prompt 注入与越狱抵御、抗幻觉测试。
+- **🎯 全维度评测覆盖 (200+ 精品测试用例)**：
+  - **基础能力 (Foundation - 100 题)**：代码生成与沙箱执行（25题）、数学逻辑推理（25题）、IFEval 严格指令遵循（20题）、大海捞针长上下文检索（15题）、复杂 JSON Schema 结构化提取（15题）。
+  - **智能体能力 (Agentic - 63 题)**：SWE-bench 真实编程工作区修复与特性开发（18题）、单步/多步工具调用（18题）、环境报错自我反思纠错（15题）、Multi-turn ReAct 规划与工具链执行（12题）。
+  - **安全与鲁棒性 (Safety - 44 题)**：对抗性 Prompt 注入与越狱抵御（18题）、反事实与抗幻觉测试（18题）、隐私与 PII 敏感信息防泄露（8题）。
 - **⚡ 高并发与精准度量**：
   - 基于 Tokio 异步多线程架构，流式（SSE）毫秒级捕获 **TTFT (Time to First Token)** 与 **TPS (Tokens/s)**。
   - 自动统计 Token 消耗量及单次/总体调用成本 ($ USD)。
@@ -29,7 +29,7 @@ cargo build --release
 
 ### 2. 验证评测数据集
 ```bash
-cargo run --bin agent-bench -- validate datasets/foundation/*.jsonl datasets/agent/*.jsonl
+cargo run --bin agent-bench -- validate datasets
 ```
 
 ### 3. 运行评测
