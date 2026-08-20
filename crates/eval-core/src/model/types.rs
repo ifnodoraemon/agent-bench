@@ -18,6 +18,9 @@ pub enum ApiProtocol {
 
     #[serde(rename = "gemini", alias = "google", alias = "generate_content")]
     Gemini,           // /v1beta/models/{model}:generateContent
+
+    #[serde(rename = "mock")]
+    Mock,             // Mock simulator for tests & offline validation
 }
 
 impl fmt::Display for ApiProtocol {
@@ -27,20 +30,22 @@ impl fmt::Display for ApiProtocol {
             ApiProtocol::OpenAiResponse => write!(f, "openai_response"),
             ApiProtocol::Anthropic => write!(f, "anthropic"),
             ApiProtocol::Gemini => write!(f, "gemini"),
+            ApiProtocol::Mock => write!(f, "mock"),
         }
     }
 }
 
 impl FromStr for ApiProtocol {
-    type Err = String;
+    type Err = anyhow::Error;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        match s.to_lowercase().trim() {
-            "openai_chat" | "openai" | "chat_completions" | "deepseek" | "qwen" | "vllm" | "ollama" | "groq" => Ok(ApiProtocol::OpenAiChat),
-            "openai_response" | "openai_responses" | "responses" | "response" => Ok(ApiProtocol::OpenAiResponse),
-            "anthropic" | "claude" | "messages" => Ok(ApiProtocol::Anthropic),
+        match s.to_lowercase().as_str() {
+            "openai_chat" | "openai" | "chat" | "v1/chat/completions" => Ok(ApiProtocol::OpenAiChat),
+            "openai_response" | "openai_responses" | "responses" | "v1/responses" => Ok(ApiProtocol::OpenAiResponse),
+            "anthropic" | "claude" | "messages" | "v1/messages" => Ok(ApiProtocol::Anthropic),
             "gemini" | "google" | "generate_content" => Ok(ApiProtocol::Gemini),
-            other => Err(format!("Unknown API protocol format: '{other}'. Supported formats: openai_chat, openai_response, anthropic, gemini")),
+            "mock" => Ok(ApiProtocol::Mock),
+            other => anyhow::bail!("Unsupported API protocol format: '{other}'. Choose from: 'openai_chat', 'openai_response', 'anthropic', 'gemini', 'mock'"),
         }
     }
 }

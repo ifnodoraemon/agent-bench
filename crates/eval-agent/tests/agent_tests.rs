@@ -74,3 +74,61 @@ fn test_trajectory_evaluator_5_dimensional_scoring() {
     assert!(eval_res.passed);
     assert!(eval_res.score >= 0.8);
 }
+
+#[tokio::test]
+async fn test_trajectory_evaluator_with_llm_judge() {
+    use eval_core::model::MockClient;
+    use std::sync::Arc;
+
+    let mock_judge = Arc::new(
+        MockClient::new("mock-judge", "MockJudge-v1").with_default_response(
+            r#"```json
+{
+  "goal_score": 0.95,
+  "tool_score": 0.90,
+  "reasoning_score": 0.90,
+  "recovery_score": 1.00,
+  "composite_score": 0.93,
+  "passed": true,
+  "reasoning": "Agent executed tools accurately and retrieved port 8080."
+}
+```"#,
+        ),
+    );
+
+    let tc = TestCase {
+        id: "test_judge_01".to_string(),
+        name: None,
+        category: Category::Agent,
+        tags: vec![],
+        prompt: "Please check the port in config".to_string(),
+        system_prompt: None,
+        reference_answer: Some("8080".to_string()),
+        eval_type: EvaluationType::AgentTrajectory,
+        criteria: None,
+        schema: None,
+        test_code: None,
+        tools: None,
+        max_turns: Some(5),
+        metadata: HashMap::new(),
+    };
+
+    let trajectory = AgentTrajectory {
+        task_id: "task_001".to_string(),
+        steps: vec![],
+        final_answer: Some("Server port is 8080".to_string()),
+        total_turns: 1,
+        completed: true,
+        total_duration: std::time::Duration::from_millis(100),
+        prompt_tokens: 50,
+        completion_tokens: 30,
+        estimated_cost_usd: 0.0001,
+    };
+
+    let judge_client: Arc<dyn eval_core::model::ModelClient> = mock_judge;
+    let eval_res = TrajectoryEvaluator::evaluate_with_judge(&tc, &trajectory, Some(&judge_client)).await;
+    assert!(eval_res.passed);
+    assert_eq!(eval_res.score, 0.93);
+    assert!(eval_res.reason.contains("Agent LLM-Judge"));
+}
+

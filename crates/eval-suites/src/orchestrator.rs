@@ -116,7 +116,12 @@ impl BenchmarkOrchestrator {
             )
             .await?;
 
-            let mut eval_res = TrajectoryEvaluator::evaluate(&test_case, &trajectory);
+            let mut eval_res = TrajectoryEvaluator::evaluate_with_judge(
+                &test_case,
+                &trajectory,
+                judge_client.as_ref(),
+            )
+            .await;
 
             // If a post-task verification command is defined in test_code or metadata
             let verify_cmd = test_case.test_code.as_deref().or_else(|| {

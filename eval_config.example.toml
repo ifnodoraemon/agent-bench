@@ -8,6 +8,18 @@ save_json = true
 save_markdown = true
 save_html = true
 
+# ==============================================================================
+# LLM-as-a-Judge 裁判模型配置 (可选)
+# 用于复杂开放式任务以及 Agent 决策轨迹（Trajectory）的多维度自动化专家打分
+# ==============================================================================
+[judge]
+id = "judge-gpt4o"
+protocol = "openai_chat"
+model_name = "gpt-4o"
+base_url = "https://api.openai.com/v1"
+api_key = "env:OPENAI_API_KEY"
+temperature = 0.0
+
 # 待评测模型列表
 
 # 1. 经典通用 OpenAI Chat Completions 协议 (/v1/chat/completions)
