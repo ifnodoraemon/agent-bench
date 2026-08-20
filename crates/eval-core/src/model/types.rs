@@ -1,0 +1,240 @@
+use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
+use std::fmt;
+use std::str::FromStr;
+use std::time::Duration;
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum ApiProtocol {
+    #[serde(rename = "openai_chat", alias = "openai", alias = "chat_completions")]
+    OpenAiChat,       // /v1/chat/completions (OpenAI, DeepSeek, Qwen, vLLM, Ollama, Groq, etc.)
+
+    #[serde(rename = "openai_response", alias = "openai_responses", alias = "responses")]
+    OpenAiResponse,   // /v1/responses (New OpenAI Responses API)
+
+    #[serde(rename = "anthropic", alias = "claude", alias = "messages")]
+    Anthropic,        // /v1/messages (Claude 3.5 Sonnet / Haiku)
+
+    #[serde(rename = "gemini", alias = "google", alias = "generate_content")]
+    Gemini,           // /v1beta/models/{model}:generateContent
+}
+
+impl fmt::Display for ApiProtocol {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            ApiProtocol::OpenAiChat => write!(f, "openai_chat"),
+            ApiProtocol::OpenAiResponse => write!(f, "openai_response"),
+            ApiProtocol::Anthropic => write!(f, "anthropic"),
+            ApiProtocol::Gemini => write!(f, "gemini"),
+        }
+    }
+}
+
+impl FromStr for ApiProtocol {
+    type Err = String;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        match s.to_lowercase().trim() {
+            "openai_chat" | "openai" | "chat_completions" | "deepseek" | "qwen" | "vllm" | "ollama" | "groq" => Ok(ApiProtocol::OpenAiChat),
+            "openai_response" | "openai_responses" | "responses" | "response" => Ok(ApiProtocol::OpenAiResponse),
+            "anthropic" | "claude" | "messages" => Ok(ApiProtocol::Anthropic),
+            "gemini" | "google" | "generate_content" => Ok(ApiProtocol::Gemini),
+            other => Err(format!("Unknown API protocol format: '{other}'. Supported formats: openai_chat, openai_response, anthropic, gemini")),
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum Role {
+    System,
+    User,
+    Assistant,
+    Tool,
+}
+
+impl Role {
+    pub fn as_str(&self) -> &'static str {
+        match self {
+            Role::System => "system",
+            Role::User => "user",
+            Role::Assistant => "assistant",
+            Role::Tool => "tool",
+        }
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ChatMessage {
+    pub role: Role,
+    pub content: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub reasoning_content: Option<String>, // DeepSeek-R1 / o1 thinking chain
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub name: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub tool_call_id: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub tool_calls: Option<Vec<ToolCall>>,
+}
+
+impl ChatMessage {
+    pub fn system(content: impl Into<String>) -> Self {
+        Self {
+            role: Role::System,
+            content: content.into(),
+            reasoning_content: None,
+            name: None,
+            tool_call_id: None,
+            tool_calls: None,
+        }
+    }
+
+    pub fn user(content: impl Into<String>) -> Self {
+        Self {
+            role: Role::User,
+            content: content.into(),
+            reasoning_content: None,
+            name: None,
+            tool_call_id: None,
+            tool_calls: None,
+        }
+    }
+
+    pub fn assistant(content: impl Into<String>) -> Self {
+        Self {
+            role: Role::Assistant,
+            content: content.into(),
+            reasoning_content: None,
+            name: None,
+            tool_call_id: None,
+            tool_calls: None,
+        }
+    }
+
+    pub fn tool_response(tool_call_id: impl Into<String>, name: impl Into<String>, content: impl Into<String>) -> Self {
+        Self {
+            role: Role::Tool,
+            content: content.into(),
+            reasoning_content: None,
+            name: Some(name.into()),
+            tool_call_id: Some(tool_call_id.into()),
+            tool_calls: None,
+        }
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct FunctionCall {
+    pub name: String,
+    pub arguments: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ToolCall {
+    pub id: String,
+    #[serde(rename = "type")]
+    pub tool_type: String,
+    pub function: FunctionCall,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct FunctionDefinition {
+    pub name: String,
+    pub description: String,
+    pub parameters: serde_json::Value,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ToolDefinition {
+    #[serde(rename = "type")]
+    pub tool_type: String,
+    pub function: FunctionDefinition,
+}
+
+impl ToolDefinition {
+    pub fn function(name: impl Into<String>, description: impl Into<String>, parameters: serde_json::Value) -> Self {
+        Self {
+            tool_type: "function".to_string(),
+            function: FunctionDefinition {
+                name: name.into(),
+                description: description.into(),
+                parameters,
+            },
+        }
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ResponseFormat {
+    #[serde(rename = "type")]
+    pub format_type: String, // "json_object" | "json_schema" | "text"
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub json_schema: Option<serde_json::Value>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ModelConfig {
+    pub id: String,
+    pub protocol: ApiProtocol,     // OpenAiChat, OpenAiResponse, Anthropic, Gemini
+    pub provider: String,          // 品牌/展示名 (如 "deepseek", "qwen", "openai")
+    pub model_name: String,
+    pub base_url: Option<String>,
+    pub api_key: Option<String>,
+    pub custom_headers: Option<HashMap<String, String>>,
+    pub temperature: Option<f32>,
+    pub max_tokens: Option<u32>,
+    pub top_p: Option<f32>,
+    pub response_format: Option<ResponseFormat>,
+    pub price_per_input_million: Option<f64>,  // USD per 1M input tokens
+    pub price_per_output_million: Option<f64>, // USD per 1M output tokens
+}
+
+impl ModelConfig {
+    pub fn new(id: impl Into<String>, provider: impl Into<String>, model_name: impl Into<String>) -> Self {
+        let prov_str = provider.into();
+        let protocol = ApiProtocol::from_str(&prov_str).unwrap_or(ApiProtocol::OpenAiChat);
+        Self {
+            id: id.into(),
+            protocol,
+            provider: prov_str,
+            model_name: model_name.into(),
+            base_url: None,
+            api_key: None,
+            custom_headers: None,
+            temperature: Some(0.0),
+            max_tokens: Some(4096),
+            top_p: Some(1.0),
+            response_format: None,
+            price_per_input_million: None,
+            price_per_output_million: None,
+        }
+    }
+
+    pub fn with_protocol(mut self, protocol: ApiProtocol) -> Self {
+        self.protocol = protocol;
+        self
+    }
+}
+
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+pub struct TokenUsage {
+    pub prompt_tokens: u32,
+    pub completion_tokens: u32,
+    pub total_tokens: u32,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ModelResponse {
+    pub text: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub reasoning_content: Option<String>,    // Extracted thinking process (R1/o1)
+    pub tool_calls: Option<Vec<ToolCall>>,
+    pub usage: TokenUsage,
+    pub total_duration: Duration,
+    pub ttft: Option<Duration>,               // Time To First Token
+    pub tokens_per_second: f64,
+    pub estimated_cost_usd: f64,
+    pub raw_response: Option<serde_json::Value>,
+}

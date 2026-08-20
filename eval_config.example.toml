@@ -1,0 +1,75 @@
+# agent-bench 配置文件示例
+# 架构原则：protocol 显式指定传输协议格式 ("openai_chat" | "openai_response" | "anthropic" | "gemini" | "mock")
+
+[benchmark]
+concurrency = 5
+output_dir = "./results"
+save_json = true
+save_markdown = true
+save_html = true
+
+# 待评测模型列表
+
+# 1. 经典通用 OpenAI Chat Completions 协议 (/v1/chat/completions)
+# 适用: DeepSeek, 通义千问 Qwen, 本地 Ollama/vLLM, Moonshot, SiliconFlow, Groq 等
+[[models]]
+id = "deepseek-chat"
+protocol = "openai_chat"
+model_name = "deepseek-chat"
+base_url = "https://api.deepseek.com/v1"
+api_key = "env:DEEPSEEK_API_KEY"
+temperature = 0.0
+price_per_input_million = 0.14
+price_per_output_million = 0.28
+
+# 2. OpenAI 最新 Responses API 协议 (/v1/responses)
+# 适用: OpenAI 官方全新 Responses API (支持 input/instructions/多模态/思考流)
+[[models]]
+id = "gpt-4o-responses"
+protocol = "openai_response"
+model_name = "gpt-4o"
+base_url = "https://api.openai.com/v1"
+api_key = "env:OPENAI_API_KEY"
+temperature = 0.0
+price_per_input_million = 2.50
+price_per_output_million = 10.00
+
+# 3. 通义千问 Qwen (OpenAI Chat 协议 + 阿里百炼 BaseURL)
+[[models]]
+id = "qwen-plus"
+protocol = "openai_chat"
+model_name = "qwen-plus"
+base_url = "https://dashscope.aliyuncs.com/compatible-mode/v1"
+api_key = "env:DASHSCOPE_API_KEY"
+temperature = 0.0
+
+# 4. 本地 Ollama / vLLM / SGLang (OpenAI Chat 协议 + 本地 BaseURL)
+[[models]]
+id = "qwen2.5-local"
+protocol = "openai_chat"
+model_name = "qwen2.5:7b"
+base_url = "http://localhost:11434/v1"
+api_key = "none"
+temperature = 0.0
+
+# 5. 原生 Anthropic Claude (Anthropic Messages 协议格式 /v1/messages)
+[[models]]
+id = "claude-3-5-haiku"
+protocol = "anthropic"
+model_name = "claude-3-5-haiku-20241022"
+base_url = "https://api.anthropic.com/v1"
+api_key = "env:ANTHROPIC_API_KEY"
+temperature = 0.0
+price_per_input_million = 0.80
+price_per_output_million = 4.00
+
+# 6. 原生 Google Gemini (Gemini generateContent 协议格式)
+[[models]]
+id = "gemini-2.0-flash"
+protocol = "gemini"
+model_name = "gemini-2.0-flash"
+base_url = "https://generativelanguage.googleapis.com/v1beta"
+api_key = "env:GEMINI_API_KEY"
+temperature = 0.0
+price_per_input_million = 0.10
+price_per_output_million = 0.40

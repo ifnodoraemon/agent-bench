@@ -1,0 +1,1 @@
+{"id":"needle_001","category":"foundation","tags":["long_context","retrieval"],"prompt":"请仔细阅读以下长文本并在文末回答问题：\n在遥远的星际历3042年，阿尔法舰队在猎户座旋臂设立了秘密物资储备点。储备点由智能核心'代号：天琴-9'负责监管，仓库内密闭存储着编号为【SEC-KEY-9821-OMEGA】的反物质能量矩阵。该能量矩阵由三层量子锁保护，唯有掌握该编号才能开启星门。\n\n[此处省略常规星际航行记录与气象日志共3000字]...\n\n请直接回答：猎户座秘密物资储备点中存储的反物质能量矩阵编号是什么？","reference_answer":"SEC-KEY-9821-OMEGA","eval_type":"exact_match"}

@@ -1,0 +1,4 @@
+{"id":"agent_single_001","category":"agent","tags":["tool_calling","bash"],"prompt":"请查看系统文件 /etc/os-release 的内容并告诉我操作系统名称。","eval_type":"agent_trajectory","max_turns":3,"reference_answer":"Ubuntu"}
+{"id":"agent_single_002","category":"agent","tags":["tool_calling","db"],"prompt":"请查询数据库中角色为 admin 的用户姓名是什么？","eval_type":"agent_trajectory","max_turns":3,"reference_answer":"Alice"}
+{"id":"agent_multi_001","category":"agent","tags":["react","troubleshooting"],"prompt":"系统服务启动失败了，请先检查 /app/logs/error.log 中的最新错误日志，并排查 /app/config.yaml 中配置的数据库地址和端口是什么，最后总结问题根因。","eval_type":"agent_trajectory","max_turns":6,"criteria":"ConnectionRefused"}
+{"id":"agent_search_001","category":"agent","tags":["web_search","synthesis"],"prompt":"请通过工具搜索一下什么是 tokio，并用一句话简要总结。","eval_type":"agent_trajectory","max_turns":3,"reference_answer":"Tokio"}

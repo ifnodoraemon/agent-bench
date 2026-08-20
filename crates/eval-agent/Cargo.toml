@@ -1,0 +1,19 @@
+[package]
+name = "eval-agent"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+
+[dependencies]
+eval-core = { path = "../eval-core" }
+tokio.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+async-trait.workspace = true
+anyhow.workspace = true
+thiserror.workspace = true
+tracing.workspace = true
+regex.workspace = true
+jsonschema.workspace = true
+tempfile.workspace = true

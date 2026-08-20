@@ -1,0 +1,18 @@
+# Rust build artifacts
+/target/
+**/*.rs.bk
+
+# Environment & Credentials
+*.env
+.env.*
+eval_config.toml
+
+# Benchmark Output Artifacts
+/results/
+/tmp/
+
+# OS & Editor
+.DS_Store
+.idea/
+.vscode/
+*.swp

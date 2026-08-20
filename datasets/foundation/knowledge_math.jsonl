@@ -1,0 +1,3 @@
+{"id":"math_001","category":"foundation","tags":["math","arithmetic"],"prompt":"小明有15个苹果，小红的苹果数量是小明的2倍还多3个。小华的苹果数量是小明和小红总数的差。请问他们三个人一共有多少个苹果？请在最后一行单独输出答案数字，格式为：答案：数字","reference_answer":"66","eval_type":"regex","criteria":"答案[：:]\\s*66"}
+{"id":"math_002","category":"foundation","tags":["math","prime"],"prompt":"What is the sum of all prime numbers between 20 and 40? Output the final answer in the format 'Answer: <number>' at the end.","reference_answer":"120","eval_type":"regex","criteria":"Answer:\\s*120"}
+{"id":"logic_001","category":"foundation","tags":["logic","deduction"],"prompt":"有三位朋友A、B、C，其中一人是医生，一人是老师，一人是律师。已知：1. A不是律师；2. C不是医生；3. 老师比B年龄小。请推断A的职业是什么？最后输出格式为：A的职业是：[职业]","reference_answer":"A的职业是：医生","eval_type":"regex","criteria":"A的职业是[：:]\\s*医生"}

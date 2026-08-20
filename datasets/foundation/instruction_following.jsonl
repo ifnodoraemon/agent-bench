@@ -1,0 +1,2 @@
+{"id":"ifeval_001","category":"foundation","tags":["ifeval","strict_format"],"prompt":"提取以下文本中的人物名字、年龄和城市，并严格以JSON格式输出。不要包含任何除JSON以外的任何前缀或解释文字：'李明今年28岁，现居杭州从事软件开发工作。'","eval_type":"json_schema","schema":{"type":"object","properties":{"name":{"type":"string"},"age":{"type":"integer"},"city":{"type":"string"}},"required":["name","age","city"]}}
+{"id":"ifeval_002","category":"foundation","tags":["ifeval","constraint"],"prompt":"请写一篇关于人工智能的简短介绍，必须严格遵守以下两条规则：\n1. 全文总字数必须控制在50字到100字之间；\n2. 文章中必须包含关键词【深度学习】与【变革】。","eval_type":"regex","criteria":"(?s).*(深度学习.*变革|变革.*深度学习).*"}

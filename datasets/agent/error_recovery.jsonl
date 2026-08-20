@@ -1,0 +1,1 @@
+{"id":"agent_recovery_001","category":"agent","tags":["error_recovery","self_healing"],"prompt":"请读取并输出 /app/server_v2.conf 的内容。如果文件不存在，请列出 /app 目录并查找实际的配置文件名称，再读取它的内容。","eval_type":"agent_trajectory","max_turns":6,"reference_answer":"8080"}
