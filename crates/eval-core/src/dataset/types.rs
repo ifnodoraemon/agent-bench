@@ -25,7 +25,7 @@ impl Category {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum EvaluationType {
     ExactMatch,
@@ -90,12 +90,12 @@ impl TestCase {
 
         // 3. Adaptive calculation by evaluation type and turn count (giving ample room for deep CoT reasoning)
         match self.eval_type {
-            EvaluationType::ExactMatch | EvaluationType::Regex => 90,
-            EvaluationType::JsonSchema | EvaluationType::CodeExecution => 90,
-            EvaluationType::LlmJudge => 120,
+            EvaluationType::ExactMatch | EvaluationType::Regex => 120,
+            EvaluationType::JsonSchema | EvaluationType::CodeExecution => 120,
+            EvaluationType::LlmJudge => 150,
             EvaluationType::AgentTrajectory => {
                 let turns = self.max_turns.unwrap_or(5);
-                (60 + (turns as u64) * 30).clamp(120, 360)
+                (60 + (turns as u64) * 35).clamp(120, 360)
             }
         }
     }

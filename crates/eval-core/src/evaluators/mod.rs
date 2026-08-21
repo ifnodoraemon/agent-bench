@@ -2,12 +2,14 @@ pub mod code;
 pub mod exact;
 pub mod llm_judge;
 pub mod regex;
+pub mod registry;
 pub mod schema;
 
 pub use code::CodeSandboxEvaluator;
 pub use exact::ExactMatchEvaluator;
 pub use llm_judge::LlmJudgeEvaluator;
 pub use regex::RegexEvaluator;
+pub use registry::EvaluatorRegistry;
 pub use schema::JsonSchemaEvaluator;
 
 use crate::dataset::TestCase;

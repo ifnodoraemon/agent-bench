@@ -1,5 +1,6 @@
 pub mod anthropic;
 pub mod client;
+pub mod extractor;
 pub mod gemini;
 pub mod mock;
 pub mod openai;
@@ -8,6 +9,7 @@ pub mod types;
 
 pub use anthropic::AnthropicClient;
 pub use client::ModelClient;
+pub use extractor::ToolCallExtractor;
 pub use gemini::GeminiClient;
 pub use mock::MockClient;
 pub use openai::OpenAICompatibleClient;

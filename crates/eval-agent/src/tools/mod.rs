@@ -1,3 +1,7 @@
+pub mod registry;
+
+pub use registry::{ToolBundle, ToolRegistry};
+
 use eval_core::model::ToolDefinition;
 use serde_json::json;
 

@@ -114,9 +114,13 @@ impl AgentRunner {
                         error: None,
                     });
 
-                    // If we just executed the final allowed turn, give the model one last turn to formulate its final answer
+                    // If we just executed the final allowed turn, prompt the model to formulate its complete final answer
                     if turn == max_turns {
                         let final_start = Instant::now();
+                        messages.push(ChatMessage::user(
+                            eval_core::prompts::AGENT_FINAL_SYNTHESIS.template
+                        ));
+
                         if let Ok(final_resp) = client.chat_complete(&messages, None).await {
                             total_prompt_tokens += final_resp.usage.prompt_tokens;
                             total_completion_tokens += final_resp.usage.completion_tokens;

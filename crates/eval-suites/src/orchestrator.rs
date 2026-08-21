@@ -185,8 +185,8 @@ impl BenchmarkOrchestrator {
             let tools = test_case.tools.clone().unwrap_or_else(get_pi_tools);
             let max_turns = test_case.max_turns.unwrap_or(8);
 
-            let default_sys = "You are an expert autonomous AI software engineer and system administrator operating in the root directory of an isolated project workspace. You have access to tools (bash, read_file, write_file, edit_file, grep_search) to inspect the workspace, execute commands, modify files, and verify results. Always use relative paths when accessing files in the workspace.".to_string();
-            let sys_prompt = test_case.system_prompt.as_deref().unwrap_or(&default_sys);
+            let default_sys = eval_core::prompts::AGENT_DEFAULT_SYSTEM.template;
+            let sys_prompt = test_case.system_prompt.as_deref().unwrap_or(default_sys);
 
             let trajectory = AgentRunner::run(
                 client.as_ref(),

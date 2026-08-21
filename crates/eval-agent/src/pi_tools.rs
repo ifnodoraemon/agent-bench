@@ -178,6 +178,10 @@ pub fn execute_pi_tool(workspace_root: &Path, name: &str, arguments_json: &str) 
                 .arg("bash")
                 .arg("-c")
                 .arg(&effective_cmd)
+                .stdin(std::process::Stdio::null())
+                .env("DEBIAN_FRONTEND", "noninteractive")
+                .env("SUDO_ASKPASS", "/bin/false")
+                .env("PAGER", "cat")
                 .current_dir(workspace_root)
                 .output()?;
 

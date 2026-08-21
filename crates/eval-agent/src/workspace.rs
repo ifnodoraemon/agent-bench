@@ -86,6 +86,10 @@ impl WorkspaceEnv {
             .arg("bash")
             .arg("-c")
             .arg(verify_cmd)
+            .stdin(std::process::Stdio::null())
+            .env("DEBIAN_FRONTEND", "noninteractive")
+            .env("SUDO_ASKPASS", "/bin/false")
+            .env("PAGER", "cat")
             .current_dir(&root)
             .output()
             .with_context(|| format!("Failed to execute verification command: {verify_cmd}"))?;
