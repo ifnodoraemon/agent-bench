@@ -53,6 +53,7 @@ impl EvaluatorRegistry {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::dataset::Category;
     use std::time::Duration;
 
     #[tokio::test]

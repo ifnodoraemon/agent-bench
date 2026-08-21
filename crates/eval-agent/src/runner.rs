@@ -54,9 +54,12 @@ impl AgentRunner {
 
         for turn in 1..=max_turns {
             let turn_start = Instant::now();
-            let response = match client.chat_complete(&messages, Some(tools)).await {
-                Ok(resp) => resp,
-                Err(e) => {
+            let response = match tokio::time::timeout(
+                std::time::Duration::from_secs(90),
+                client.chat_complete(&messages, Some(tools))
+            ).await {
+                Ok(Ok(resp)) => resp,
+                Ok(Err(e)) => {
                     steps.push(AgentStep {
                         turn,
                         model_thought: String::new(),
@@ -64,6 +67,17 @@ impl AgentRunner {
                         tool_results: None,
                         latency_ms: turn_start.elapsed().as_millis() as u64,
                         error: Some(format!("Model call failed: {e}")),
+                    });
+                    break;
+                }
+                Err(_) => {
+                    steps.push(AgentStep {
+                        turn,
+                        model_thought: String::new(),
+                        tool_calls: None,
+                        tool_results: None,
+                        latency_ms: turn_start.elapsed().as_millis() as u64,
+                        error: Some("Step LLM call timed out after 90s".to_string()),
                     });
                     break;
                 }

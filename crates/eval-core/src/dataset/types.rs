@@ -77,27 +77,33 @@ impl TestCase {
             return t.clamp(5, 600);
         }
 
-        // 2. Difficulty preset if specified
-        if let Some(diff) = self.metadata.get("difficulty").and_then(|v| v.as_str()) {
-            match diff.to_lowercase().as_str() {
-                "easy" | "simple" => return 60,
-                "medium" => return 90,
-                "hard" => return 150,
-                "complex_agent" | "expert" => return 300,
-                _ => {}
-            }
-        }
-
-        // 3. Adaptive calculation by evaluation type and turn count (giving ample room for deep CoT reasoning)
-        match self.eval_type {
+        // 2. Base timeout by evaluation type
+        let base_secs: u64 = match self.eval_type {
             EvaluationType::ExactMatch | EvaluationType::Regex => 120,
-            EvaluationType::JsonSchema | EvaluationType::CodeExecution => 120,
-            EvaluationType::LlmJudge => 150,
+            EvaluationType::JsonSchema | EvaluationType::CodeExecution => 150,
+            EvaluationType::LlmJudge => 180,
             EvaluationType::AgentTrajectory => {
-                let turns = self.max_turns.unwrap_or(5);
-                (60 + (turns as u64) * 35).clamp(120, 360)
+                let turns = self.max_turns.unwrap_or(6) as u64;
+                (90 + turns * 45).clamp(180, 480)
             }
-        }
+        };
+
+        // 3. Difficulty multiplier
+        let diff_mult: f64 = if let Some(diff) = self.metadata.get("difficulty").and_then(|v| v.as_str()) {
+            match diff.to_lowercase().as_str() {
+                "easy" | "simple" => 0.8,
+                "medium" => 1.0,
+                "hard" | "complex_agent" | "expert" => 1.5,
+                _ => 1.0,
+            }
+        } else if self.tags.iter().any(|t| t == "olympiad" || t == "deep_reasoning" || t == "complex_refactor") {
+            1.5
+        } else {
+            1.0
+        };
+
+        let calculated = ((base_secs as f64) * diff_mult).round() as u64;
+        calculated.clamp(60, 600)
     }
 }
 
