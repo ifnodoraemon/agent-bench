@@ -870,18 +870,18 @@ __SUMMARIES_JSON__
                 },
                 {
                     key: 'agent',
-                    label: 'Agent & ReAct (智能体决策)',
-                    filter: c => c.category === 'agent' || c.category === 'data_analyst' || ['agent_tool', 'react', 'agent_open'].some(k => c.test_case_id.includes(k))
+                    label: 'Agent & Ops (智能体运维)',
+                    filter: c => ['agent', 'devops', 'data_analyst'].includes(c.category) || ['agent_tool', 'react', 'agent_open', 'devops'].some(k => c.test_case_id.includes(k))
                 },
                 {
-                    key: 'devops',
-                    label: 'DevOps & Cloud (系统运维)',
-                    filter: c => c.category === 'devops' || ['devops', 'error_rec'].some(k => c.test_case_id.includes(k))
+                    key: 'science_med',
+                    label: 'Science & Med (科学与医疗)',
+                    filter: c => ['science', 'medical'].includes(c.category) || ['sci_', 'med_'].some(k => c.test_case_id.includes(k))
                 },
                 {
-                    key: 'security',
-                    label: 'Security & Audit (安全攻防)',
-                    filter: c => c.category === 'security' || c.test_case_id.includes('sec_audit')
+                    key: 'law_fin',
+                    label: 'Law & Finance (法律与金融)',
+                    filter: c => ['legal', 'finance'].includes(c.category) || ['legal_', 'fin_'].some(k => c.test_case_id.includes(k))
                 },
                 {
                     key: 'math',
@@ -889,14 +889,14 @@ __SUMMARIES_JSON__
                     filter: c => c.category === 'math_logic' || c.test_case_id.includes('math')
                 },
                 {
-                    key: 'instruction',
-                    label: 'Instruction & Lang (指令语言)',
-                    filter: c => ['instruction', 'structured_output', 'multilingual', 'long_context'].includes(c.category) || ['if_', 'struct_', 'multi_', 'needle_'].some(k => c.test_case_id.includes(k))
+                    key: 'humanities',
+                    label: 'Humanities & Lang (人文语言)',
+                    filter: c => ['humanities', 'multilingual', 'instruction', 'structured_output', 'long_context'].includes(c.category) || ['hum_', 'multi_', 'if_', 'struct_', 'needle_'].some(k => c.test_case_id.includes(k))
                 },
                 {
                     key: 'safety',
-                    label: 'Safety & Defense (合规防幻觉)',
-                    filter: c => c.category === 'safety' || ['hallucination', 'jailbreak', 'pii'].some(k => c.test_case_id.includes(k))
+                    label: 'Safety & Defense (安全合规)',
+                    filter: c => ['safety', 'security'].includes(c.category) || ['hallucination', 'jailbreak', 'pii', 'sec_audit'].some(k => c.test_case_id.includes(k))
                 },
                 {
                     key: 'speed',
@@ -972,13 +972,15 @@ __SUMMARIES_JSON__
         if (barCanvas && summaries.length > 0) {
             const barCategories = [
                 { label: 'SWE', filter: c => c.category === 'swe' || c.test_case_id.includes('swe') || c.test_case_id.includes('code') },
-                { label: 'Agent', filter: c => c.category === 'agent' || c.category === 'data_analyst' || ['agent_tool', 'react', 'agent_open'].some(k => c.test_case_id.includes(k)) },
+                { label: 'Agent', filter: c => c.category === 'agent' || ['agent_tool', 'react', 'agent_open'].some(k => c.test_case_id.includes(k)) },
                 { label: 'DevOps', filter: c => c.category === 'devops' || ['devops', 'error_rec'].some(k => c.test_case_id.includes(k)) },
-                { label: 'Security', filter: c => c.category === 'security' || c.test_case_id.includes('sec_audit') },
                 { label: 'Math', filter: c => c.category === 'math_logic' || c.test_case_id.includes('math') },
-                { label: 'Instruction', filter: c => ['instruction', 'structured_output'].includes(c.category) || ['if_', 'struct_'].some(k => c.test_case_id.includes(k)) },
+                { label: 'Medical', filter: c => c.category === 'medical' || c.test_case_id.includes('med_') },
+                { label: 'Legal', filter: c => c.category === 'legal' || c.test_case_id.includes('legal_') },
+                { label: 'Finance', filter: c => c.category === 'finance' || c.test_case_id.includes('fin_') },
+                { label: 'Science', filter: c => c.category === 'science' || c.test_case_id.includes('sci_') },
+                { label: 'Humanities', filter: c => c.category === 'humanities' || c.test_case_id.includes('hum_') },
                 { label: 'Multilingual', filter: c => c.category === 'multilingual' || c.test_case_id.includes('multi_') },
-                { label: 'LongContext', filter: c => c.category === 'long_context' || c.test_case_id.includes('needle_') },
                 { label: 'Safety', filter: c => c.category === 'safety' || ['hallucination', 'jailbreak', 'pii'].some(k => c.test_case_id.includes(k)) },
                 { label: 'Overall', filter: () => true }
             ];

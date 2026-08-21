@@ -119,6 +119,11 @@ pub async fn execute_run(
             "long_context" => Category::LongContext,
             "instruction" => Category::Instruction,
             "structured" | "structured_output" => Category::StructuredOutput,
+            "medical" | "health" | "med" => Category::Medical,
+            "legal" | "law" => Category::Legal,
+            "finance" | "fin" | "econ" => Category::Finance,
+            "science" | "natsci" => Category::Science,
+            "humanities" | "history" | "philosophy" => Category::Humanities,
             "performance" => Category::Performance,
             other => Category::Custom(other.to_string()),
         };
