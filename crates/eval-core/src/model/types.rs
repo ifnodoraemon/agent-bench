@@ -247,3 +247,166 @@ pub struct ModelResponse {
     pub finish_reason: Option<String>,       // "stop" | "length" | "tool_calls"
     pub raw_response: Option<serde_json::Value>,
 }
+
+/// Fallback parser that extracts structured tool calls if an open-source model (DeepSeek, GLM, Qwen, etc.)
+/// generates markup/text tool calls instead of native JSON tool_calls in OpenAI API response.
+pub fn extract_fallback_tool_calls(text: &str) -> Option<Vec<ToolCall>> {
+    let mut calls = Vec::new();
+    let mut idx = 0;
+
+    // 1. DeepSeek DSML format: <｜DSML｜invoke name="NAME">...<｜DSML｜parameter name="PARAM">VAL</｜DSML｜parameter>...</｜DSML｜invoke>
+    // Handles both full-width ｜ and standard |
+    let dsml_invoke_re = regex::Regex::new(r"(?s)<[｜|]DSML[｜|]invoke\s+name=[\x22']([^'\x22]+)[\x22']\s*>(.*?)</[｜|]DSML[｜|]invoke>").ok();
+    let dsml_param_re = regex::Regex::new(r"(?s)<[｜|]DSML[｜|]parameter\s+name=[\x22']([^'\x22]+)[\x22'][^>]*>(.*?)</[｜|]DSML[｜|]parameter>").ok();
+
+    if let (Some(inv_re), Some(p_re)) = (dsml_invoke_re.as_ref(), dsml_param_re.as_ref()) {
+        for cap in inv_re.captures_iter(text) {
+            let name = cap.get(1).map(|m| m.as_str().trim()).unwrap_or("");
+            let body = cap.get(2).map(|m| m.as_str()).unwrap_or("");
+            if !name.is_empty() {
+                let mut map = serde_json::Map::new();
+                for pcap in p_re.captures_iter(body) {
+                    let pname = pcap.get(1).map(|m| m.as_str().trim()).unwrap_or("");
+                    let pval = pcap.get(2).map(|m| m.as_str().trim()).unwrap_or("");
+                    if !pname.is_empty() {
+                        map.insert(pname.to_string(), serde_json::Value::String(pval.to_string()));
+                    }
+                }
+                calls.push(ToolCall {
+                    id: format!("call_dsml_{idx}"),
+                    tool_type: "function".to_string(),
+                    function: FunctionCall {
+                        name: name.to_string(),
+                        arguments: serde_json::to_string(&map).unwrap_or_else(|_| "{}".to_string()),
+                    },
+                });
+                idx += 1;
+            }
+        }
+    }
+
+    if !calls.is_empty() {
+        return Some(calls);
+    }
+
+    // 2. GLM format & generic <tool_call>...</tool_call>
+    let tool_call_re = regex::Regex::new(r"(?s)<tool_call>(.*?)</tool_call>").ok();
+    if let Some(tc_re) = tool_call_re.as_ref() {
+        for cap in tc_re.captures_iter(text) {
+            let body = cap.get(1).map(|m| m.as_str().trim()).unwrap_or("");
+            if body.is_empty() {
+                continue;
+            }
+
+            // If body is valid JSON: {"name": "...", "arguments": {...}}
+            if body.starts_with('{') {
+                if let Ok(v) = serde_json::from_str::<serde_json::Value>(body) {
+                    let name = v.get("name").or_else(|| v.get("tool")).and_then(|n| n.as_str()).unwrap_or("");
+                    let args = if let Some(a) = v.get("arguments").or_else(|| v.get("parameters")) {
+                        if a.is_string() {
+                            a.as_str().unwrap().to_string()
+                        } else {
+                            serde_json::to_string(a).unwrap_or_else(|_| "{}".to_string())
+                        }
+                    } else {
+                        "{}".to_string()
+                    };
+
+                    if !name.is_empty() {
+                        calls.push(ToolCall {
+                            id: format!("call_glm_json_{idx}"),
+                            tool_type: "function".to_string(),
+                            function: FunctionCall {
+                                name: name.to_string(),
+                                arguments: args,
+                            },
+                        });
+                        idx += 1;
+                        continue;
+                    }
+                }
+            }
+
+            // GLM custom markup: write_file<arg_value>path</arg_key><arg_value>src/config_loader.py\ncontent</arg_key><arg_value>...
+            let parts: Vec<&str> = body.splitn(2, "<arg_value>").collect();
+            let name = parts[0].trim();
+            if !name.is_empty() && parts.len() > 1 {
+                let rest = parts[1];
+                let segments: Vec<&str> = rest.split("</arg_key><arg_value>").collect();
+                let mut map = serde_json::Map::new();
+                if segments.len() > 1 {
+                    let mut cur_key = segments[0].trim();
+                    for (s_idx, seg) in segments.iter().enumerate().skip(1) {
+                        if s_idx == segments.len() - 1 {
+                            // Last segment: strip trailing </arg_value>
+                            let val = if let Some(stripped) = seg.strip_suffix("</arg_value>") {
+                                stripped.trim()
+                            } else {
+                                seg.trim()
+                            };
+                            map.insert(cur_key.to_string(), serde_json::Value::String(val.to_string()));
+                        } else {
+                            // Intermediate segment: value ending with newline and next_key
+                            if let Some((val, next_key)) = seg.rsplit_once('\n') {
+                                map.insert(cur_key.to_string(), serde_json::Value::String(val.trim().to_string()));
+                                cur_key = next_key.trim();
+                            } else {
+                                map.insert(cur_key.to_string(), serde_json::Value::String(seg.trim().to_string()));
+                            }
+                        }
+                    }
+                }
+
+                calls.push(ToolCall {
+                    id: format!("call_glm_markup_{idx}"),
+                    tool_type: "function".to_string(),
+                    function: FunctionCall {
+                        name: name.to_string(),
+                        arguments: serde_json::to_string(&map).unwrap_or_else(|_| "{}".to_string()),
+                    },
+                });
+                idx += 1;
+            }
+        }
+    }
+
+    if !calls.is_empty() {
+        return Some(calls);
+    }
+
+    None
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_extract_dsml_tool_calls() {
+        let text = r#"Let me check the config:
+<｜DSML｜tool_calls>
+<｜DSML｜invoke name="read_file">
+<｜DSML｜parameter name="path" string="true">app/config.yaml</｜DSML｜parameter>
+</｜DSML｜invoke>
+</｜DSML｜tool_calls>"#;
+
+        let calls = extract_fallback_tool_calls(text).expect("Should extract DSML tool calls");
+        assert_eq!(calls.len(), 1);
+        assert_eq!(calls[0].function.name, "read_file");
+        assert!(calls[0].function.arguments.contains("app/config.yaml"));
+    }
+
+    #[test]
+    fn test_extract_glm_tool_calls() {
+        let text = r#"Refactoring config:
+<tool_call>write_file<arg_value>path</arg_key><arg_value>src/config_loader.py
+content</arg_key><arg_value>import json
+def load_config(): pass</arg_value></tool_call>"#;
+
+        let calls = extract_fallback_tool_calls(text).expect("Should extract GLM tool calls");
+        assert_eq!(calls.len(), 1);
+        assert_eq!(calls[0].function.name, "write_file");
+        assert!(calls[0].function.arguments.contains("src/config_loader.py"));
+        assert!(calls[0].function.arguments.contains("load_config"));
+    }
+}

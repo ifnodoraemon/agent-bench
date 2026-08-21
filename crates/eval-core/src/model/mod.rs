@@ -13,8 +13,8 @@ pub use mock::MockClient;
 pub use openai::OpenAICompatibleClient;
 pub use openai_responses::OpenAIResponsesClient;
 pub use types::{
-    ApiProtocol, ChatMessage, FunctionCall, FunctionDefinition, ModelConfig, ModelResponse,
-    ResponseFormat, Role, TokenUsage, ToolCall, ToolDefinition,
+    extract_fallback_tool_calls, ApiProtocol, ChatMessage, FunctionCall, FunctionDefinition,
+    ModelConfig, ModelResponse, ResponseFormat, Role, TokenUsage, ToolCall, ToolDefinition,
 };
 
 use anyhow::Result;

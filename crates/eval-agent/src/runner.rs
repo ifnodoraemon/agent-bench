@@ -1,5 +1,5 @@
 use crate::env::SimulatedEnvironment;
-use eval_core::model::{ChatMessage, ModelClient, ToolCall, ToolDefinition};
+use eval_core::model::{extract_fallback_tool_calls, ChatMessage, ModelClient, ToolCall, ToolDefinition};
 use serde::{Deserialize, Serialize};
 use std::time::{Duration, Instant};
 
@@ -75,8 +75,11 @@ impl AgentRunner {
 
             let step_latency = turn_start.elapsed().as_millis() as u64;
 
-            // Check if model decided to call tools
-            if let Some(tool_calls) = response.tool_calls.clone() {
+            // Check if model decided to call tools (either structured API tool_calls or fallback text markup)
+            let tool_calls = response.tool_calls.clone().filter(|tc| !tc.is_empty())
+                .or_else(|| extract_fallback_tool_calls(&response.text));
+
+            if let Some(tool_calls) = tool_calls {
                 if !tool_calls.is_empty() {
                     let mut tool_results = Vec::new();
 

@@ -1,6 +1,7 @@
 use super::client::ModelClient;
 use super::types::{
-    ChatMessage, FunctionCall, ModelConfig, ModelResponse, TokenUsage, ToolCall, ToolDefinition,
+    extract_fallback_tool_calls, ChatMessage, FunctionCall, ModelConfig, ModelResponse, TokenUsage,
+    ToolCall, ToolDefinition,
 };
 use anyhow::{anyhow, Context, Result};
 use async_trait::async_trait;
@@ -382,6 +383,12 @@ impl OpenAICompatibleClient {
             full_text = reasoning_text.clone();
         }
 
+        let fallback_tools = if !final_tool_calls.is_empty() {
+            Some(final_tool_calls)
+        } else {
+            extract_fallback_tool_calls(&full_text)
+        };
+
         Ok(ModelResponse {
             text: full_text,
             reasoning_content: if reasoning_text.is_empty() {
@@ -389,11 +396,7 @@ impl OpenAICompatibleClient {
             } else {
                 Some(reasoning_text)
             },
-            tool_calls: if final_tool_calls.is_empty() {
-                None
-            } else {
-                Some(final_tool_calls)
-            },
+            tool_calls: fallback_tools,
             usage: TokenUsage {
                 prompt_tokens,
                 completion_tokens,
@@ -468,12 +471,18 @@ impl OpenAICompatibleClient {
             0.0
         };
 
+        let fallback_tools = if !final_tool_calls.is_empty() {
+            Some(final_tool_calls)
+        } else {
+            extract_fallback_tool_calls(&text)
+        };
+
         let estimated_cost = self.calculate_cost(prompt_tokens, completion_tokens);
 
         Ok(ModelResponse {
             text,
             reasoning_content,
-            tool_calls: if final_tool_calls.is_empty() { None } else { Some(final_tool_calls) },
+            tool_calls: fallback_tools,
             usage: TokenUsage {
                 prompt_tokens,
                 completion_tokens,
