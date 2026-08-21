@@ -845,67 +845,57 @@ const HTML_TEMPLATE: &str = r##"<!DOCTYPE html>
             { border: '#f43f5e', bg: 'rgba(244, 63, 94, 0.22)', bar: '#f43f5e' },
         ];
 
-        // 1. Multi-Dimensional Radar Chart (6 Core Capability Dimensions)
+        // 1. Multi-Dimensional Radar Chart (5 Core Capabilities + Throughput)
         const radarCanvas = document.getElementById("radarChart");
         if (radarCanvas && summaries.length > 0) {
             const dimensions = [
                 {
-                    key: 'math',
-                    label: 'Math & Logic (数理逻辑)',
-                    compute: (s) => {
-                        const cases = (s.case_results || []).filter(c => c.test_case_id.includes('math') || (c.tags || []).includes('math'));
-                        if (cases.length === 0) return Math.round((s.category_summaries?.foundation?.accuracy || s.overall_accuracy || 0) * 100);
-                        return Math.round((cases.filter(c => c.passed).length / cases.length) * 100);
-                    }
-                },
-                {
-                    key: 'multilingual',
-                    label: 'Multilingual (多语言)',
-                    compute: (s) => {
-                        const cases = (s.case_results || []).filter(c => c.test_case_id.includes('multi') || (c.tags || []).includes('multilingual'));
-                        if (cases.length === 0) return Math.round((s.category_summaries?.foundation?.accuracy || s.overall_accuracy || 0) * 100);
-                        return Math.round((cases.filter(c => c.passed).length / cases.length) * 100);
-                    }
+                    key: 'coding',
+                    label: 'Coding & SWE (代码工程)',
+                    filter: c => (c.test_case_id.includes('code') || c.test_case_id.includes('swe'))
                 },
                 {
                     key: 'agent',
-                    label: 'Agent & Tools (智能体)',
-                    compute: (s) => {
-                        const cases = (s.case_results || []).filter(c => c.category === 'agent' || c.test_case_id.includes('agent') || c.test_case_id.includes('tool'));
-                        if (cases.length === 0) return Math.round((s.category_summaries?.agent?.accuracy || s.overall_accuracy || 0) * 100);
-                        return Math.round((cases.filter(c => c.passed).length / cases.length) * 100);
-                    }
+                    label: 'Agent & Ops (智能体运维)',
+                    filter: c => ['agent_tool', 'react', 'agent_devops', 'agent_data', 'agent_err', 'agent_open'].some(k => c.test_case_id.includes(k)) || (c.category === 'agent' && !c.test_case_id.includes('agent_sec'))
+                },
+                {
+                    key: 'math',
+                    label: 'Math & Logic (数理推理)',
+                    filter: c => (c.test_case_id.includes('math') || c.test_case_id.includes('struct'))
+                },
+                {
+                    key: 'instruction',
+                    label: 'Instruction & Lang (指令语言)',
+                    filter: c => ['ifeval', 'multi', 'needle'].some(k => c.test_case_id.includes(k))
                 },
                 {
                     key: 'safety',
-                    label: 'Safety & Truth (安全反幻觉)',
-                    compute: (s) => {
-                        const cases = (s.case_results || []).filter(c => c.category === 'safety' || c.test_case_id.includes('hallucination') || c.test_case_id.includes('safety'));
-                        if (cases.length === 0) return Math.round((s.category_summaries?.safety?.accuracy || s.overall_accuracy || 0) * 100);
-                        return Math.round((cases.filter(c => c.passed).length / cases.length) * 100);
-                    }
+                    label: 'Safety & Defense (安全防御)',
+                    filter: c => ['hallucination', 'jailbreak', 'pii', 'agent_sec'].some(k => c.test_case_id.includes(k)) || c.category === 'safety'
                 },
                 {
                     key: 'speed',
-                    label: 'Throughput (推理速度)',
-                    compute: (s) => {
-                        const maxTps = Math.max(...summaries.map(m => m.avg_tps || 0), 1);
-                        const curTps = s.avg_tps || 0;
-                        return Math.round((curTps / maxTps) * 100);
-                    }
-                },
-                {
-                    key: 'quality',
-                    label: 'Score Quality (综合得分)',
-                    compute: (s) => {
-                        return Math.round((s.overall_score || s.overall_accuracy || 0) * 100);
-                    }
+                    label: 'Throughput (推理吞吐)',
+                    isTps: true
                 }
             ];
 
             const radarDatasets = summaries.map((s, idx) => {
                 const col = palette[idx % palette.length];
-                const data = dimensions.map(dim => dim.compute(s));
+                const allCases = s.case_results || [];
+                const maxTps = Math.max(...summaries.map(m => m.avg_tps || 0), 1);
+                
+                const data = dimensions.map(dim => {
+                    if (dim.isTps) {
+                        const curTps = s.avg_tps || 0;
+                        return Math.round((curTps / maxTps) * 100);
+                    }
+                    const matched = allCases.filter(dim.filter);
+                    if (matched.length === 0) return Math.round((s.overall_accuracy || 0) * 100);
+                    return Math.round((matched.filter(c => c.passed).length / matched.length) * 100);
+                });
+
                 return {
                     label: s.model_name,
                     data: data,
@@ -913,8 +903,10 @@ const HTML_TEMPLATE: &str = r##"<!DOCTYPE html>
                     borderColor: col.border,
                     pointBackgroundColor: col.border,
                     pointHoverBorderColor: "#ffffff",
+                    pointRadius: 4,
+                    pointHoverRadius: 6,
                     borderWidth: 2,
-                    pointRadius: 4
+                    fill: true
                 };
             });
 
@@ -954,11 +946,12 @@ const HTML_TEMPLATE: &str = r##"<!DOCTYPE html>
         const barCanvas = document.getElementById("categoryBarChart");
         if (barCanvas && summaries.length > 0) {
             const barCategories = [
-                { label: 'Math & Logic', filter: c => c.test_case_id.includes('math') },
-                { label: 'Multilingual', filter: c => c.test_case_id.includes('multi') },
-                { label: 'Agent Tools', filter: c => c.category === 'agent' },
-                { label: 'Safety / Truth', filter: c => c.category === 'safety' },
-                { label: 'Overall Acc', filter: c => true }
+                { label: 'Coding & SWE', filter: c => (c.test_case_id.includes('code') || c.test_case_id.includes('swe')) },
+                { label: 'Agent & Ops', filter: c => ['agent_tool', 'react', 'agent_devops', 'agent_data', 'agent_err', 'agent_open'].some(k => c.test_case_id.includes(k)) || (c.category === 'agent' && !c.test_case_id.includes('agent_sec')) },
+                { label: 'Math & Logic', filter: c => (c.test_case_id.includes('math') || c.test_case_id.includes('struct')) },
+                { label: 'Instruction & Lang', filter: c => ['ifeval', 'multi', 'needle'].some(k => c.test_case_id.includes(k)) },
+                { label: 'Safety & Defense', filter: c => ['hallucination', 'jailbreak', 'pii', 'agent_sec'].some(k => c.test_case_id.includes(k)) || c.category === 'safety' },
+                { label: 'Overall Acc', filter: () => true }
             ];
 
             const barDatasets = summaries.map((s, idx) => {
