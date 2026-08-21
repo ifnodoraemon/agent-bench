@@ -12,8 +12,8 @@ impl MarkdownReporter {
         md.push_str(&format!("*Generated at: {}*\n\n", now));
 
         md.push_str("## 1. Overall Leaderboard\n\n");
-        md.push_str("| Rank | Model | Elo Rating | Micro Acc | Macro Acc | Composite Index | Avg Latency | P95 Latency | TTFT | TPS | In/Out Tokens |\n");
-        md.push_str("| :---: | :--- | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: |\n");
+        md.push_str("| Rank | Model | Elo Rating | Micro Acc | Macro Acc | L4/L5 Frontier | Composite Index | Avg Latency | P95 Latency | TTFT | TPS | In/Out Tokens |\n");
+        md.push_str("| :---: | :--- | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: |\n");
 
         let mut sorted_summaries = summaries.to_vec();
         sorted_summaries.sort_by(|a, b| {
@@ -37,7 +37,7 @@ impl MarkdownReporter {
             };
 
             md.push_str(&format!(
-                "| {} {} | **{}** | **{:.0}** | {:.1}% ({}/{}) | **{:.1}%** | **{:.1}** | {:.0}ms | {:.0}ms | {} | {:.1} | {}/{} |\n",
+                "| {} {} | **{}** | **{:.0}** | {:.1}% ({}/{}) | **{:.1}%** | **{:.1}%** | **{:.1}** | {:.0}ms | {:.0}ms | {} | {:.1} | {}/{} |\n",
                 rank_emoji,
                 i + 1,
                 s.model_name,
@@ -46,13 +46,14 @@ impl MarkdownReporter {
                 s.passed_cases,
                 s.total_cases,
                 s.macro_accuracy * 100.0,
+                s.l4_l5_frontier_accuracy * 100.0,
                 s.weighted_composite_index,
                 s.avg_latency_ms,
                 s.p95_latency_ms,
                 ttft_str,
                 s.avg_tps,
                 s.total_prompt_tokens,
-                s.total_completion_tokens,
+                s.total_completion_tokens
             ));
         }
 

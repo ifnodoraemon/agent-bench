@@ -16,6 +16,7 @@ impl TerminalReporter {
                 Cell::new("Elo Rating").add_attribute(Attribute::Bold),
                 Cell::new("Micro Acc").add_attribute(Attribute::Bold),
                 Cell::new("Macro Acc").add_attribute(Attribute::Bold),
+                Cell::new("L4/L5 Frontier").add_attribute(Attribute::Bold),
                 Cell::new("Composite").add_attribute(Attribute::Bold),
                 Cell::new("Avg Latency").add_attribute(Attribute::Bold),
                 Cell::new("P95 Latency").add_attribute(Attribute::Bold),
@@ -41,6 +42,14 @@ impl TerminalReporter {
                 Color::Red
             };
 
+            let frontier_color = if summary.l4_l5_frontier_accuracy >= 0.85 {
+                Color::Green
+            } else if summary.l4_l5_frontier_accuracy >= 0.60 {
+                Color::Yellow
+            } else {
+                Color::Red
+            };
+
             let ttft_str = summary
                 .avg_ttft_ms
                 .map(|t| format!("{:.0}ms", t))
@@ -57,6 +66,7 @@ impl TerminalReporter {
                 ))
                 .fg(acc_color),
                 Cell::new(format!("{:.1}%", summary.macro_accuracy * 100.0)).fg(acc_color),
+                Cell::new(format!("{:.1}%", summary.l4_l5_frontier_accuracy * 100.0)).fg(frontier_color),
                 Cell::new(format!("{:.1}", summary.weighted_composite_index)).fg(Color::Magenta),
                 Cell::new(format!("{:.0}ms", summary.avg_latency_ms)),
                 Cell::new(format!("{:.0}ms", summary.p95_latency_ms)),

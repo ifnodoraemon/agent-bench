@@ -95,6 +95,8 @@ pub struct TestCase {
     pub name: Option<String>,
     pub category: Category,
     #[serde(default)]
+    pub difficulty: Option<String>,
+    #[serde(default)]
     pub tags: Vec<String>,
     pub prompt: String,
     #[serde(default)]

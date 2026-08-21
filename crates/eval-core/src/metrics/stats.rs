@@ -17,6 +17,8 @@ pub struct CaseResult {
     pub test_case_id: String,
     pub test_case_name: Option<String>,
     pub category: Category,
+    #[serde(default)]
+    pub difficulty: Option<String>,
     pub passed: bool,
     pub score: f64,
     #[serde(default)]
@@ -57,6 +59,10 @@ pub struct ModelBenchmarkSummary {
     pub elo_rating: f64,                // Dynamic ELO Battle Rating
     #[serde(default)]
     pub efficiency_index: f64,          // Throughput & Latency Efficiency Score
+    #[serde(default)]
+    pub tier_accuracy: HashMap<String, f64>, // L1 ~ L5 Tier Accuracy Breakdown
+    #[serde(default)]
+    pub l4_l5_frontier_accuracy: f64,   // Extreme/Frontier Difficulty Accuracy (L4 + L5)
     pub avg_latency_ms: f64,
     pub p95_latency_ms: f64,
     pub avg_ttft_ms: Option<f64>,
@@ -92,6 +98,8 @@ impl ModelBenchmarkSummary {
                 weighted_composite_index: 0.0,
                 elo_rating: 1200.0,
                 efficiency_index: 0.0,
+                tier_accuracy: HashMap::new(),
+                l4_l5_frontier_accuracy: 0.0,
                 avg_latency_ms: 0.0,
                 p95_latency_ms: 0.0,
                 avg_ttft_ms: None,
@@ -212,6 +220,51 @@ impl ModelBenchmarkSummary {
         let latency_factor = (avg_latency_ms / 1000.0).max(1.0).ln() + 1.0;
         let efficiency_index = (overall_accuracy * avg_tps / latency_factor).max(0.0);
 
+        // Compute Tier Breakdown (L1 ~ L5)
+        let mut tier_map: HashMap<String, (usize, usize)> = HashMap::new();
+        let mut l4_l5_passed = 0;
+        let mut l4_l5_total = 0;
+
+        for case in &case_results {
+            let tier = case.difficulty.as_deref().unwrap_or_else(|| {
+                if case.test_case_id.contains("_hard_") || case.test_case_id.contains("putnam") || case.test_case_id.contains("swe_hard") {
+                    "L5"
+                } else if case.test_case_id.contains("agent_") || case.test_case_id.contains("sec_") || case.test_case_id.contains("devops_") {
+                    "L4"
+                } else if ["medical", "legal", "finance", "science", "humanities", "math_logic"].contains(&case.category.as_str()) {
+                    "L3"
+                } else {
+                    "L2"
+                }
+            });
+
+            let entry = tier_map.entry(tier.to_string()).or_insert((0, 0));
+            entry.0 += 1;
+            if case.passed {
+                entry.1 += 1;
+            }
+
+            if tier == "L4" || tier == "L5" {
+                l4_l5_total += 1;
+                if case.passed {
+                    l4_l5_passed += 1;
+                }
+            }
+        }
+
+        let mut tier_accuracy = HashMap::new();
+        for (tier, (total, passed)) in tier_map {
+            if total > 0 {
+                tier_accuracy.insert(tier, passed as f64 / total as f64);
+            }
+        }
+
+        let l4_l5_frontier_accuracy = if l4_l5_total > 0 {
+            l4_l5_passed as f64 / l4_l5_total as f64
+        } else {
+            overall_accuracy
+        };
+
         Self {
             model_id,
             model_name,
@@ -224,6 +277,8 @@ impl ModelBenchmarkSummary {
             weighted_composite_index,
             elo_rating: 1200.0,
             efficiency_index,
+            tier_accuracy,
+            l4_l5_frontier_accuracy,
             avg_latency_ms,
             p95_latency_ms,
             avg_ttft_ms,

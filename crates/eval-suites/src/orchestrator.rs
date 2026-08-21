@@ -70,6 +70,7 @@ impl BenchmarkOrchestrator {
                 let case_id = test_case.id.clone();
                 let case_name = test_case.name.clone();
                 let case_cat = test_case.category.clone();
+                let case_diff = test_case.difficulty.clone();
 
                 let timeout_secs = test_case.timeout_seconds();
                 let res = match tokio::time::timeout(
@@ -84,6 +85,7 @@ impl BenchmarkOrchestrator {
                             test_case_id: case_id,
                             test_case_name: case_name,
                             category: case_cat,
+                            difficulty: case_diff,
                             passed: false,
                             score: 0.0,
                             dimensions: None,
@@ -245,6 +247,7 @@ impl BenchmarkOrchestrator {
                 test_case_id: test_case.id,
                 test_case_name: test_case.name,
                 category: test_case.category,
+                difficulty: test_case.difficulty,
                 passed: eval_res.passed,
                 score: eval_res.score,
                 dimensions: eval_res.dimensions,
@@ -277,6 +280,7 @@ impl BenchmarkOrchestrator {
                     test_case_id: test_case.id,
                     test_case_name: test_case.name,
                     category: test_case.category,
+                    difficulty: test_case.difficulty,
                     passed: false,
                     score: 0.0,
                     dimensions: None,
@@ -361,6 +365,7 @@ impl BenchmarkOrchestrator {
             test_case_id: test_case.id,
             test_case_name: test_case.name,
             category: test_case.category,
+            difficulty: test_case.difficulty,
             passed: eval_res.passed,
             score: eval_res.score,
             dimensions: eval_res.dimensions,

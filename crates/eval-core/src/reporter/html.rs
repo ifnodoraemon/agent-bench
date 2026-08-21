@@ -88,6 +88,15 @@ impl HtmlReporter {
                     "badge-danger"
                 };
 
+                let frontier_acc_pct = s.l4_l5_frontier_accuracy * 100.0;
+                let frontier_acc_class = if frontier_acc_pct >= 85.0 {
+                    "badge-success"
+                } else if frontier_acc_pct >= 60.0 {
+                    "badge-warning"
+                } else {
+                    "badge-danger"
+                };
+
                 format!(
                     r#"<tr>
                     <td class="text-center">{}</td>
@@ -101,6 +110,7 @@ impl HtmlReporter {
                         </div>
                     </td>
                     <td><span class="badge {}">{:.1}%</span></td>
+                    <td><span class="badge {}" style="font-weight:800;">{:.1}%</span></td>
                     <td><span class="composite-pill">{:.1}</span></td>
                     <td>{:.0}ms</td>
                     <td><span class="ttft-badge">{}</span></td>
@@ -119,6 +129,8 @@ impl HtmlReporter {
                     bar_color,
                     macro_acc_class,
                     macro_acc_pct,
+                    frontier_acc_class,
+                    frontier_acc_pct,
                     s.weighted_composite_index,
                     s.avg_latency_ms,
                     ttft,
@@ -580,6 +592,11 @@ const HTML_TEMPLATE: &str = r##"<!DOCTYPE html>
         .badge-success { background: var(--emerald-bg); color: var(--accent-emerald); border: 1px solid var(--emerald-border); }
         .badge-warning { background: var(--amber-bg); color: var(--accent-amber); border: 1px solid var(--amber-border); }
         .badge-danger { background: var(--rose-bg); color: var(--accent-rose); border: 1px solid var(--rose-border); }
+        .badge-tier-l1 { background: var(--sky-bg); color: var(--accent-sky); border: 1px solid var(--sky-border); font-size: 0.72rem; }
+        .badge-tier-l2 { background: var(--emerald-bg); color: var(--accent-emerald); border: 1px solid var(--emerald-border); font-size: 0.72rem; }
+        .badge-tier-l3 { background: var(--amber-bg); color: var(--accent-amber); border: 1px solid var(--amber-border); font-size: 0.72rem; }
+        .badge-tier-l4 { background: rgba(168, 85, 247, 0.15); color: #c084fc; border: 1px solid rgba(168, 85, 247, 0.35); font-size: 0.72rem; font-weight: 800; }
+        .badge-tier-l5 { background: rgba(239, 68, 68, 0.18); color: #f87171; border: 1px solid rgba(239, 68, 68, 0.4); font-size: 0.72rem; font-weight: 900; }
 
         /* Case Inspector */
         .controls-bar {
@@ -800,6 +817,7 @@ const HTML_TEMPLATE: &str = r##"<!DOCTYPE html>
                             <th>Elo 天梯分</th>
                             <th style="min-width: 200px;">样本准确率 (Micro Acc)</th>
                             <th>领域宏观均分 (Macro Acc)</th>
+                            <th>L4/L5 极限战力 (Frontier)</th>
                             <th>加权综合指数</th>
                             <th>平均耗时</th>
                             <th>首字时间 (TTFT)</th>
@@ -849,6 +867,7 @@ const HTML_TEMPLATE: &str = r##"<!DOCTYPE html>
                     <input type="text" id="searchInput" class="search-input" placeholder="🔍 搜索 Case ID / 报错原因...">
                     <button class="filter-btn active" data-filter="all">全部</button>
                     <button class="filter-btn" data-filter="fail" style="color: var(--accent-rose);">仅看失败</button>
+                    <button class="filter-btn" data-filter="l4_l5" style="color: #c084fc; font-weight: 700;">⚡ 仅看 L4/L5 难题</button>
                     <button class="filter-btn" data-filter="pass" style="color: var(--accent-emerald);">仅看成功</button>
                 </div>
             </div>
@@ -1164,6 +1183,10 @@ __SUMMARIES_JSON__
             let filtered = currentModel.case_results.filter(c => {
                 if (currentFilter === "pass" && !c.passed) return false;
                 if (currentFilter === "fail" && c.passed) return false;
+                if (currentFilter === "l4_l5") {
+                    const tier = c.difficulty || (c.test_case_id.includes('_hard_') || c.test_case_id.includes('putnam') || c.test_case_id.includes('swe_hard') ? 'L5' : (c.test_case_id.includes('agent_') || c.test_case_id.includes('sec_') || c.test_case_id.includes('devops_') ? 'L4' : 'L3'));
+                    if (tier !== "L4" && tier !== "L5") return false;
+                }
                 if (currentSearch) {
                     const matchId = c.test_case_id.toLowerCase().includes(currentSearch);
                     const matchReason = (c.reason || "").toLowerCase().includes(currentSearch);
@@ -1186,6 +1209,9 @@ __SUMMARIES_JSON__
                     ? '<span class="badge badge-success">PASS</span>'
                     : '<span class="badge badge-danger">FAIL</span>';
 
+                const tier = c.difficulty || (c.test_case_id.includes('_hard_') || c.test_case_id.includes('putnam') || c.test_case_id.includes('swe_hard') ? 'L5' : (c.test_case_id.includes('agent_') || c.test_case_id.includes('sec_') || c.test_case_id.includes('devops_') ? 'L4' : (['medical', 'legal', 'finance', 'science', 'humanities', 'math_logic'].includes(c.category) ? 'L3' : 'L2')));
+                const tierBadge = `<span class="badge badge-tier-${tier.toLowerCase()}">${tier}</span>`;
+
                 let dimHtml = '';
                 if (c.dimensions) {
                     const d = c.dimensions;
@@ -1202,6 +1228,7 @@ __SUMMARIES_JSON__
                     <div class="case-header" onclick="const b = this.nextElementSibling; b.style.display = b.style.display === 'none' ? 'block' : 'none';">
                         <div>
                             ${statusBadge}
+                            ${tierBadge}
                             <span class="case-category-tag">${c.category.toUpperCase()}</span>
                             <strong>${c.test_case_id}</strong>
                         </div>
