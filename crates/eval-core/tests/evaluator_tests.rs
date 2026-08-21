@@ -22,6 +22,7 @@ fn dummy_response(text: impl Into<String>) -> ModelResponse {
         ttft: Some(Duration::from_millis(30)),
         tokens_per_second: 50.0,
         estimated_cost_usd: 0.0001,
+        finish_reason: Some("stop".to_string()),
         raw_response: None,
     }
 }
@@ -60,6 +61,14 @@ async fn test_exact_match_evaluator() {
     let res2 = eval.evaluate(&tc, &resp_partial).await.unwrap();
     assert!(res2.passed);
     assert_eq!(res2.score, 0.8);
+
+    // Test math CoT with \boxed{\frac{1}{6}}
+    let mut tc_math = make_test_case("tc_math", EvaluationType::ExactMatch);
+    tc_math.reference_answer = Some("1/6".to_string());
+    let math_cot = r#"we have two fair 6-sided dice. total possible outcomes: \( 6 \times 6 = 36 \). now, count the outcomes where the sum is 7: - (1, 6) - (2, 5) - (3, 4) - (4, 3) - (5, 2) - (6, 1) that’s 6 favorable outcomes. probability = \(\frac{6}{36} = \frac{1}{6}\). \[ \boxed{\frac{1}{6}} \]"#;
+    let res_math = eval.evaluate(&tc_math, &dummy_response(math_cot)).await.unwrap();
+    assert!(res_math.passed, "Math reasoning with boxed fraction should pass! Reason: {}", res_math.reason);
+    assert_eq!(res_math.score, 1.0);
 
     let resp_fail = dummy_response("London");
     let res3 = eval.evaluate(&tc, &resp_fail).await.unwrap();

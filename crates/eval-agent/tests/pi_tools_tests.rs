@@ -68,11 +68,14 @@ fn test_pi_tools_workspace_operations() {
 #[test]
 fn test_get_pi_tools_definitions() {
     let tools = get_pi_tools();
-    assert_eq!(tools.len(), 5);
+    assert!(tools.len() >= 5);
     let names: Vec<_> = tools.iter().map(|t| t.function.name.as_str()).collect();
     assert!(names.contains(&"bash"));
     assert!(names.contains(&"read_file"));
     assert!(names.contains(&"write_file"));
     assert!(names.contains(&"edit_file"));
     assert!(names.contains(&"grep_search"));
+    assert!(names.contains(&"calculator"));
+    assert!(names.contains(&"search_web"));
+    assert!(names.contains(&"database_query"));
 }

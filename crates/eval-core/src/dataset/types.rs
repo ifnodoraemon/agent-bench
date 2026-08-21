@@ -64,6 +64,43 @@ pub struct TestCase {
     pub metadata: HashMap<String, serde_json::Value>,
 }
 
+impl TestCase {
+    /// Calculate adaptive timeout in seconds based on difficulty, eval_type, and max_turns
+    pub fn timeout_seconds(&self) -> u64 {
+        // 1. Explicit metadata timeout
+        if let Some(t) = self
+            .metadata
+            .get("timeout_secs")
+            .or_else(|| self.metadata.get("timeout"))
+            .and_then(|v| v.as_u64())
+        {
+            return t.clamp(5, 600);
+        }
+
+        // 2. Difficulty preset if specified
+        if let Some(diff) = self.metadata.get("difficulty").and_then(|v| v.as_str()) {
+            match diff.to_lowercase().as_str() {
+                "easy" | "simple" => return 60,
+                "medium" => return 90,
+                "hard" => return 150,
+                "complex_agent" | "expert" => return 300,
+                _ => {}
+            }
+        }
+
+        // 3. Adaptive calculation by evaluation type and turn count (giving ample room for deep CoT reasoning)
+        match self.eval_type {
+            EvaluationType::ExactMatch | EvaluationType::Regex => 90,
+            EvaluationType::JsonSchema | EvaluationType::CodeExecution => 90,
+            EvaluationType::LlmJudge => 120,
+            EvaluationType::AgentTrajectory => {
+                let turns = self.max_turns.unwrap_or(5);
+                (60 + (turns as u64) * 30).clamp(120, 360)
+            }
+        }
+    }
+}
+
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct Dataset {
     pub name: String,

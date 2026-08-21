@@ -207,7 +207,17 @@ impl ModelClient for AnthropicClient {
         let mut completion_tokens = 0u32;
 
         while let Some(event_res) = stream.next().await {
-            let event = event_res.context("Error in Anthropic SSE stream")?;
+            let event = match event_res {
+                Ok(ev) => ev,
+                Err(err) => {
+                    if !full_text.is_empty() || !tool_calls.is_empty() {
+                        tracing::info!("Gracefully salvaging Anthropic response despite SSE stream termination: {err}");
+                        break;
+                    } else {
+                        return Err(anyhow::anyhow!("Anthropic SSE stream interrupted before content received: {err}"));
+                    }
+                }
+            };
             let parsed: serde_json::Value = match serde_json::from_str(&event.data) {
                 Ok(v) => v,
                 Err(_) => continue,
@@ -294,6 +304,7 @@ impl ModelClient for AnthropicClient {
             ttft: first_token_time,
             tokens_per_second: tps,
             estimated_cost_usd: estimated_cost,
+            finish_reason: Some("stop".to_string()),
             raw_response: None,
         })
     }

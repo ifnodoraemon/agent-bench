@@ -69,10 +69,12 @@ impl MarkdownReporter {
                 for fc in failed_cases {
                     md.push_str(&format!("- **Case ID:** `{}` (Category: `{}`)\n", fc.test_case_id, fc.category.as_str()));
                     md.push_str(&format!("  - **Failure Reason:** {}\n", fc.reason));
-                    let snippet = if fc.model_output.len() > 150 {
-                        format!("{}...", &fc.model_output[..150].replace('\n', " "))
+                    let flat_output = fc.model_output.replace('\n', " ");
+                    let char_count = flat_output.chars().count();
+                    let snippet = if char_count > 150 {
+                        format!("{}...", flat_output.chars().take(150).collect::<String>())
                     } else {
-                        fc.model_output.replace('\n', " ")
+                        flat_output
                     };
                     md.push_str(&format!("  - **Model Output Snippet:** `{}`\n\n", snippet));
                 }

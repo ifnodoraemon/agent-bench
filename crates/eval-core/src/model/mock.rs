@@ -89,6 +89,7 @@ impl ModelClient for MockClient {
                 100.0
             },
             estimated_cost_usd: 0.0,
+            finish_reason: Some("stop".to_string()),
             raw_response: None,
         })
     }

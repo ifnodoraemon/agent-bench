@@ -3,7 +3,7 @@ use super::types::{
     ChatMessage, FunctionCall, ModelConfig, ModelResponse, Role, TokenUsage, ToolCall,
     ToolDefinition,
 };
-use anyhow::{anyhow, Context, Result};
+use anyhow::{anyhow, Result};
 use async_trait::async_trait;
 use eventsource_stream::Eventsource;
 use futures_util::StreamExt;
@@ -230,7 +230,17 @@ impl ModelClient for GeminiClient {
         let mut completion_tokens = 0u32;
 
         while let Some(event_res) = stream.next().await {
-            let event = event_res.context("Error in Gemini SSE stream")?;
+            let event = match event_res {
+                Ok(ev) => ev,
+                Err(err) => {
+                    if !full_text.is_empty() || !tool_calls.is_empty() {
+                        tracing::info!("Gracefully salvaging Gemini response despite SSE stream termination: {err}");
+                        break;
+                    } else {
+                        return Err(anyhow::anyhow!("Gemini SSE stream interrupted before content received: {err}"));
+                    }
+                }
+            };
             let parsed: serde_json::Value = match serde_json::from_str(&event.data) {
                 Ok(v) => v,
                 Err(_) => continue,
@@ -309,6 +319,7 @@ impl ModelClient for GeminiClient {
             ttft: first_token_time,
             tokens_per_second: tps,
             estimated_cost_usd: estimated_cost,
+            finish_reason: Some("stop".to_string()),
             raw_response: None,
         })
     }

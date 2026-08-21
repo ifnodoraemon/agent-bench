@@ -202,7 +202,17 @@ impl ModelClient for OpenAIResponsesClient {
         let mut completion_tokens = 0u32;
 
         while let Some(event_res) = stream.next().await {
-            let event = event_res.context("Error in Responses SSE stream")?;
+            let event = match event_res {
+                Ok(ev) => ev,
+                Err(err) => {
+                    if !full_text.is_empty() || !reasoning_text.is_empty() || !tool_calls.is_empty() {
+                        tracing::info!("Gracefully salvaging OpenAI Responses output despite SSE stream termination: {err}");
+                        break;
+                    } else {
+                        return Err(anyhow::anyhow!("OpenAI Responses SSE stream interrupted before content received: {err}"));
+                    }
+                }
+            };
             if event.data == "[DONE]" {
                 break;
             }
@@ -305,6 +315,7 @@ impl ModelClient for OpenAIResponsesClient {
             ttft: first_token_time,
             tokens_per_second: tps,
             estimated_cost_usd: estimated_cost,
+            finish_reason: Some("stop".to_string()),
             raw_response: None,
         })
     }

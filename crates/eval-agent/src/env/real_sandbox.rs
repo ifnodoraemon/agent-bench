@@ -76,7 +76,9 @@ impl SimulatedEnvironment for RealSubprocessBashEnv {
                     return Ok("Error: Empty bash command provided.".to_string());
                 }
 
-                let output = Command::new("bash")
+                let output = Command::new("timeout")
+                    .arg("15s")
+                    .arg("bash")
                     .arg("-c")
                     .arg(cmd)
                     .current_dir(&cwd)
@@ -85,6 +87,10 @@ impl SimulatedEnvironment for RealSubprocessBashEnv {
                 let stdout = String::from_utf8_lossy(&output.stdout);
                 let stderr = String::from_utf8_lossy(&output.stderr);
                 let exit_code = output.status.code().unwrap_or(-1);
+
+                if exit_code == 124 {
+                    return Ok("Error: Command execution timed out (exceeded 15s limit).".to_string());
+                }
 
                 let mut res = String::new();
                 if !stdout.is_empty() {

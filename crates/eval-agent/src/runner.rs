@@ -111,6 +111,28 @@ impl AgentRunner {
                         error: None,
                     });
 
+                    // If we just executed the final allowed turn, give the model one last turn to formulate its final answer
+                    if turn == max_turns {
+                        let final_start = Instant::now();
+                        if let Ok(final_resp) = client.chat_complete(&messages, None).await {
+                            total_prompt_tokens += final_resp.usage.prompt_tokens;
+                            total_completion_tokens += final_resp.usage.completion_tokens;
+                            total_cost += final_resp.estimated_cost_usd;
+
+                            final_answer = Some(final_resp.text.clone());
+                            completed = true;
+
+                            steps.push(AgentStep {
+                                turn: turn + 1,
+                                model_thought: final_resp.text,
+                                tool_calls: None,
+                                tool_results: None,
+                                latency_ms: final_start.elapsed().as_millis() as u64,
+                                error: None,
+                            });
+                        }
+                    }
+
                     continue;
                 }
             }
@@ -129,6 +151,16 @@ impl AgentRunner {
             });
 
             break;
+        }
+
+        // Fallback: if final_answer is still None, take the latest non-empty thought
+        if final_answer.is_none() {
+            for step in steps.iter().rev() {
+                if !step.model_thought.trim().is_empty() {
+                    final_answer = Some(step.model_thought.clone());
+                    break;
+                }
+            }
         }
 
         Ok(AgentTrajectory {

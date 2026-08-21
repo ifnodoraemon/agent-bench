@@ -192,26 +192,28 @@ pub struct ModelConfig {
     pub max_tokens: Option<u32>,
     pub top_p: Option<f32>,
     pub response_format: Option<ResponseFormat>,
+    pub reasoning_effort: Option<String>,      // "none" | "minimal" | "low" | "medium" | "high" | "xhigh" | "max"
+    pub extra_body: Option<HashMap<String, serde_json::Value>>, // Custom backend parameters
     pub price_per_input_million: Option<f64>,  // USD per 1M input tokens
     pub price_per_output_million: Option<f64>, // USD per 1M output tokens
 }
 
 impl ModelConfig {
     pub fn new(id: impl Into<String>, provider: impl Into<String>, model_name: impl Into<String>) -> Self {
-        let prov_str = provider.into();
-        let protocol = ApiProtocol::from_str(&prov_str).unwrap_or(ApiProtocol::OpenAiChat);
         Self {
             id: id.into(),
-            protocol,
-            provider: prov_str,
+            protocol: ApiProtocol::OpenAiChat,
+            provider: provider.into(),
             model_name: model_name.into(),
             base_url: None,
             api_key: None,
             custom_headers: None,
-            temperature: Some(0.0),
-            max_tokens: Some(4096),
-            top_p: Some(1.0),
+            temperature: None,
+            max_tokens: None,
+            top_p: None,
             response_format: None,
+            reasoning_effort: None,
+            extra_body: None,
             price_per_input_million: None,
             price_per_output_million: None,
         }
@@ -241,5 +243,7 @@ pub struct ModelResponse {
     pub ttft: Option<Duration>,               // Time To First Token
     pub tokens_per_second: f64,
     pub estimated_cost_usd: f64,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub finish_reason: Option<String>,       // "stop" | "length" | "tool_calls"
     pub raw_response: Option<serde_json::Value>,
 }

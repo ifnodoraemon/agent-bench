@@ -54,6 +54,8 @@ pub struct ModelProfile {
     pub temperature: Option<f32>,
     pub max_tokens: Option<u32>,
     pub top_p: Option<f32>,
+    pub reasoning_effort: Option<String>,
+    pub extra_body: Option<HashMap<String, serde_json::Value>>,
     pub price_per_input_million: Option<f64>,
     pub price_per_output_million: Option<f64>,
 }
@@ -94,6 +96,8 @@ impl ModelProfile {
             max_tokens: self.max_tokens,
             top_p: self.top_p,
             response_format: None,
+            reasoning_effort: self.reasoning_effort.clone(),
+            extra_body: self.extra_body.clone(),
             price_per_input_million: self.price_per_input_million,
             price_per_output_million: self.price_per_output_million,
         }

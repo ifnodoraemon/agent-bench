@@ -152,10 +152,9 @@ pub async fn execute_run(
         let c2 = eval_core::model::create_client(mock2)?;
 
         let orchestrator = BenchmarkOrchestrator::new(concurrency);
-        let s1 = orchestrator.run_benchmark(c1, &combined_dataset).await?;
-        let s2 = orchestrator.run_benchmark(c2, &combined_dataset).await?;
+        let summaries = orchestrator.run_all_models_parallel(vec![c1, c2], &combined_dataset).await?;
 
-        save_and_display_results(&[s1, s2], &output_dir, &config.benchmark)?;
+        save_and_display_results(&summaries, &output_dir, &config.benchmark)?;
         return Ok(());
     }
 
@@ -171,16 +170,21 @@ pub async fn execute_run(
         orchestrator = orchestrator.with_judge(judge);
     }
 
-    let mut summaries = Vec::new();
-    for profile in model_profiles {
+    let mut clients = Vec::new();
+    for profile in &model_profiles {
         let model_cfg = profile.to_model_config();
         let client = create_client(model_cfg)
             .with_context(|| format!("Failed to initialize client for '{}'", profile.id))?;
-
-        println!("\n🚀 Running benchmark on model: {} ({})", profile.id, profile.model_name);
-        let summary = orchestrator.run_benchmark(client, &combined_dataset).await?;
-        summaries.push(summary);
+        clients.push(client);
     }
+
+    println!("\n🚀 Launching parallel matrix benchmark on {} models concurrently...", clients.len());
+    for profile in &model_profiles {
+        println!("  • [{}] {}", profile.id, profile.model_name);
+    }
+    println!();
+
+    let summaries = orchestrator.run_all_models_parallel(clients, &combined_dataset).await?;
 
     save_and_display_results(&summaries, &output_dir, &config.benchmark)?;
     Ok(())

@@ -6,6 +6,7 @@
 *.env
 .env.*
 eval_config.toml
+eval_gpustack.toml
 
 # Benchmark Output Artifacts
 /results/

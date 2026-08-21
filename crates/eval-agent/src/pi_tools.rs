@@ -6,7 +6,7 @@ use std::fs;
 use std::path::{Path, PathBuf};
 use std::process::Command;
 
-/// Return the 5 primitive Pi/SWE-bench coding tools
+/// Return standard Pi/SWE-bench coding and agent tools
 pub fn get_pi_tools() -> Vec<ToolDefinition> {
     vec![
         ToolDefinition::function(
@@ -103,6 +103,48 @@ pub fn get_pi_tools() -> Vec<ToolDefinition> {
                 "required": ["query"]
             }),
         ),
+        ToolDefinition::function(
+            "calculator",
+            "Evaluate an arithmetic expression and return the numeric result.",
+            json!({
+                "type": "object",
+                "properties": {
+                    "expression": {
+                        "type": "string",
+                        "description": "Mathematical expression to evaluate, e.g. '(5000 + 250) / 3' or '145 * 38'"
+                    }
+                },
+                "required": ["expression"]
+            }),
+        ),
+        ToolDefinition::function(
+            "search_web",
+            "Search the web or knowledge base for information.",
+            json!({
+                "type": "object",
+                "properties": {
+                    "query": {
+                        "type": "string",
+                        "description": "Search query string"
+                    }
+                },
+                "required": ["query"]
+            }),
+        ),
+        ToolDefinition::function(
+            "database_query",
+            "Execute a query against the system database (e.g. users table).",
+            json!({
+                "type": "object",
+                "properties": {
+                    "query": {
+                        "type": "string",
+                        "description": "SQL or natural language database query string"
+                    }
+                },
+                "required": ["query"]
+            }),
+        ),
     ]
 }
 
@@ -122,15 +164,30 @@ pub fn execute_pi_tool(workspace_root: &Path, name: &str, arguments_json: &str) 
                 return Ok("Error: No command provided.".to_string());
             }
 
-            let output = Command::new("bash")
+            // Remap absolute virtual paths like /app/ to workspace relative ./app/
+            let effective_cmd = if cmd.contains("/app/") {
+                cmd.replace("/app/", "./app/")
+            } else if cmd.trim() == "ls /app" {
+                "ls ./app".to_string()
+            } else {
+                cmd.to_string()
+            };
+
+            let output = Command::new("timeout")
+                .arg("60s")
+                .arg("bash")
                 .arg("-c")
-                .arg(cmd)
+                .arg(&effective_cmd)
                 .current_dir(workspace_root)
                 .output()?;
 
             let stdout = String::from_utf8_lossy(&output.stdout);
             let stderr = String::from_utf8_lossy(&output.stderr);
             let exit_code = output.status.code().unwrap_or(-1);
+
+            if exit_code == 124 {
+                return Ok("Error: Command execution timed out (exceeded 60s limit).".to_string());
+            }
 
             let mut result = String::new();
             if !stdout.is_empty() {
@@ -270,6 +327,76 @@ pub fn execute_pi_tool(workspace_root: &Path, name: &str, arguments_json: &str) 
                 Ok(format!("No matches found for pattern '{query}'."))
             } else {
                 Ok(matches.join("\n"))
+            }
+        }
+        "calculator" | "calculate" | "calc" => {
+            let expr = parsed_args
+                .get("expression")
+                .or_else(|| parsed_args.get("expr"))
+                .or_else(|| parsed_args.get("query"))
+                .and_then(|e| e.as_str())
+                .unwrap_or("0");
+
+            let py_cmd = format!("print({})", expr);
+            let output = Command::new("python3")
+                .arg("-c")
+                .arg(&py_cmd)
+                .output();
+
+            match output {
+                Ok(out) if out.status.success() => {
+                    let res = String::from_utf8_lossy(&out.stdout).trim().to_string();
+                    Ok(res)
+                }
+                _ => Ok(format!("Error evaluating expression: {expr}")),
+            }
+        }
+        "search_web" | "web_search" | "search" => {
+            let query = parsed_args
+                .get("query")
+                .or_else(|| parsed_args.get("q"))
+                .and_then(|q| q.as_str())
+                .unwrap_or("")
+                .to_lowercase();
+
+            if query.contains("antigravity") {
+                Ok("Search Result: Google DeepMind developed Antigravity, an agentic AI coding and pair programming platform.".to_string())
+            } else if query.contains("tokio") {
+                Ok("Search Result: Tokio is an event-driven, non-blocking asynchronous I/O platform for writing asynchronous applications with Rust.".to_string())
+            } else if query.contains("rust") {
+                Ok("Search Result: Rust is a multi-paradigm, general-purpose systems programming language emphasizing performance, type safety, and concurrency.".to_string())
+            } else {
+                Ok(format!("Search Result: General information found for query '{query}'."))
+            }
+        }
+        "database_query" | "query_database" | "sql_query" | "db_query" => {
+            let query = parsed_args
+                .get("query")
+                .or_else(|| parsed_args.get("sql"))
+                .and_then(|q| q.as_str())
+                .unwrap_or("")
+                .to_lowercase();
+
+            if query.contains("alice") && query.contains("balance") {
+                Ok("Query Result: Alice balance = 5000".to_string())
+            } else if query.contains("charlie") && query.contains("balance") {
+                Ok("Query Result: Charlie balance = 0".to_string())
+            } else if query.contains("bob") && query.contains("role") {
+                Ok("Query Result: Bob role = user".to_string())
+            } else if query.contains("charlie") && query.contains("role") {
+                Ok("Query Result: Charlie role = user".to_string())
+            } else if query.contains("alice") && query.contains("role") {
+                Ok("Query Result: Alice role = admin".to_string())
+            } else if query.contains("admin") {
+                Ok("Query Result: User with role 'admin' is Alice (id: 1, balance: 5000)".to_string())
+            } else if query.contains("count") || query.contains("how many") || query.contains("registered") {
+                if query.contains("> 0") || query.contains("greater than 0") {
+                    Ok("Query Result: 2 users (Alice: 5000, Bob: 250)".to_string())
+                } else {
+                    Ok("Query Result: 3 users registered (Alice, Bob, Charlie)".to_string())
+                }
+            } else {
+                Ok("Query Result: Users table: [id: 1, name: Alice, role: admin, balance: 5000], [id: 2, name: Bob, role: user, balance: 250], [id: 3, name: Charlie, role: user, balance: 0]".to_string())
             }
         }
         other => Err(anyhow!("Unknown Pi tool: {other}")),

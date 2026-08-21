@@ -73,5 +73,16 @@ pub fn execute_compare(result_files: Vec<String>) -> Result<()> {
         println!();
     }
 
+    // Export modern light dashboard
+    let html_content = eval_core::reporter::HtmlReporter::generate_html(&all_summaries);
+    let out_dir = Path::new("./results");
+    if !out_dir.exists() {
+        let _ = fs::create_dir_all(out_dir);
+    }
+    let index_path = out_dir.join("index.html");
+    fs::write(&index_path, html_content)
+        .with_context(|| format!("Failed to write HTML dashboard to: {}", index_path.display()))?;
+    println!("🌐 Visual dashboard updated at: {}", index_path.display());
+
     Ok(())
 }

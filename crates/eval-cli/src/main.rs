@@ -62,7 +62,7 @@ enum Commands {
     /// Compare multiple benchmark run result JSONs and compute Elo ratings
     Compare {
         /// Paths to result JSON files to compare
-        #[arg(required = true, num_args = 2..)]
+        #[arg(required = true, num_args = 1..)]
         result_files: Vec<String>,
     },
 }
