@@ -6,7 +6,10 @@ pub struct HtmlReporter;
 impl HtmlReporter {
     pub fn generate_html(summaries: &[ModelBenchmarkSummary]) -> String {
         let now = Local::now().format("%Y-%m-%d %H:%M:%S").to_string();
-        let summaries_json = serde_json::to_string(summaries).unwrap_or_else(|_| "[]".to_string());
+        let summaries_json = serde_json::to_string(summaries)
+            .unwrap_or_else(|_| "[]".to_string())
+            .replace("</script>", "<\\/script>")
+            .replace("</SCRIPT>", "<\\/SCRIPT>");
 
         let mut sorted_summaries = summaries.to_vec();
         sorted_summaries.sort_by(|a, b| {
@@ -793,8 +796,12 @@ const HTML_TEMPLATE: &str = r##"<!DOCTYPE html>
         </footer>
     </div>
 
+    <script id="benchmark-data" type="application/json">
+__SUMMARIES_JSON__
+    </script>
+
     <script>
-        const summaries = __SUMMARIES_JSON__;
+        const summaries = JSON.parse(document.getElementById("benchmark-data").textContent);
         let currentModel = summaries[0] || null;
         let currentFilter = "all";
         let currentSearch = "";
@@ -831,9 +838,16 @@ const HTML_TEMPLATE: &str = r##"<!DOCTYPE html>
             }
         }
 
-        const savedTheme = localStorage.getItem('agent_bench_theme');
-        if (savedTheme) {
-            document.documentElement.setAttribute('data-theme', savedTheme);
+        const urlParams = new URLSearchParams(window.location.search);
+        const urlTheme = urlParams.get('theme');
+        if (urlTheme) {
+            document.documentElement.setAttribute('data-theme', urlTheme);
+            localStorage.setItem('agent_bench_theme', urlTheme);
+        } else {
+            const savedTheme = localStorage.getItem('agent_bench_theme');
+            if (savedTheme) {
+                document.documentElement.setAttribute('data-theme', savedTheme);
+            }
         }
 
         // Distinct Palette (Neon vibrant in dark, balanced in light)
@@ -917,6 +931,7 @@ const HTML_TEMPLATE: &str = r##"<!DOCTYPE html>
                     datasets: radarDatasets
                 },
                 options: {
+                    animation: false,
                     responsive: true,
                     maintainAspectRatio: false,
                     scales: {
@@ -978,6 +993,7 @@ const HTML_TEMPLATE: &str = r##"<!DOCTYPE html>
                     datasets: barDatasets
                 },
                 options: {
+                    animation: false,
                     responsive: true,
                     maintainAspectRatio: false,
                     scales: {
