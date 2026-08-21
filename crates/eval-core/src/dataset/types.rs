@@ -79,8 +79,8 @@ impl TestCase {
 
         // 2. Base timeout by evaluation type
         let base_secs: u64 = match self.eval_type {
-            EvaluationType::ExactMatch | EvaluationType::Regex => 120,
-            EvaluationType::JsonSchema | EvaluationType::CodeExecution => 150,
+            EvaluationType::ExactMatch | EvaluationType::Regex => 150,
+            EvaluationType::JsonSchema | EvaluationType::CodeExecution => 180,
             EvaluationType::LlmJudge => 180,
             EvaluationType::AgentTrajectory => {
                 let turns = self.max_turns.unwrap_or(6) as u64;
@@ -96,7 +96,12 @@ impl TestCase {
                 "hard" | "complex_agent" | "expert" => 1.5,
                 _ => 1.0,
             }
-        } else if self.tags.iter().any(|t| t == "olympiad" || t == "deep_reasoning" || t == "complex_refactor") {
+        } else if self.tags.iter().any(|t| {
+            matches!(
+                t.as_str(),
+                "olympiad" | "deep_reasoning" | "complex_refactor" | "logic" | "puzzle" | "math"
+            )
+        }) {
             1.5
         } else {
             1.0
