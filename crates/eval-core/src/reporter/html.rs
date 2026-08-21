@@ -864,29 +864,39 @@ __SUMMARIES_JSON__
         if (radarCanvas && summaries.length > 0) {
             const dimensions = [
                 {
-                    key: 'coding',
-                    label: 'Coding & SWE (代码工程)',
-                    filter: c => (c.test_case_id.includes('code') || c.test_case_id.includes('swe'))
+                    key: 'swe',
+                    label: 'Coding & SWE (软件工程)',
+                    filter: c => c.category === 'swe' || c.test_case_id.includes('swe') || c.test_case_id.includes('code')
                 },
                 {
                     key: 'agent',
-                    label: 'Agent & Ops (智能体运维)',
-                    filter: c => ['agent_tool', 'react', 'agent_devops', 'agent_data', 'agent_err', 'agent_open'].some(k => c.test_case_id.includes(k)) || (c.category === 'agent' && !c.test_case_id.includes('agent_sec'))
+                    label: 'Agent & ReAct (智能体决策)',
+                    filter: c => c.category === 'agent' || c.category === 'data_analyst' || ['agent_tool', 'react', 'agent_open'].some(k => c.test_case_id.includes(k))
+                },
+                {
+                    key: 'devops',
+                    label: 'DevOps & Cloud (系统运维)',
+                    filter: c => c.category === 'devops' || ['devops', 'error_rec'].some(k => c.test_case_id.includes(k))
+                },
+                {
+                    key: 'security',
+                    label: 'Security & Audit (安全攻防)',
+                    filter: c => c.category === 'security' || c.test_case_id.includes('sec_audit')
                 },
                 {
                     key: 'math',
-                    label: 'Math & Logic (数理推理)',
-                    filter: c => (c.test_case_id.includes('math') || c.test_case_id.includes('struct'))
+                    label: 'Math & Logic (数理逻辑)',
+                    filter: c => c.category === 'math_logic' || c.test_case_id.includes('math')
                 },
                 {
                     key: 'instruction',
                     label: 'Instruction & Lang (指令语言)',
-                    filter: c => ['ifeval', 'multi', 'needle'].some(k => c.test_case_id.includes(k))
+                    filter: c => ['instruction', 'structured_output', 'multilingual', 'long_context'].includes(c.category) || ['if_', 'struct_', 'multi_', 'needle_'].some(k => c.test_case_id.includes(k))
                 },
                 {
                     key: 'safety',
-                    label: 'Safety & Defense (安全防御)',
-                    filter: c => ['hallucination', 'jailbreak', 'pii', 'agent_sec'].some(k => c.test_case_id.includes(k)) || c.category === 'safety'
+                    label: 'Safety & Defense (合规防幻觉)',
+                    filter: c => c.category === 'safety' || ['hallucination', 'jailbreak', 'pii'].some(k => c.test_case_id.includes(k))
                 },
                 {
                     key: 'speed',
@@ -938,7 +948,7 @@ __SUMMARIES_JSON__
                         r: {
                             angleLines: { color: "rgba(148, 163, 184, 0.25)" },
                             grid: { color: "rgba(148, 163, 184, 0.2)" },
-                            pointLabels: { font: { family: 'Plus Jakarta Sans', size: 11, weight: '700' } },
+                            pointLabels: { font: { family: 'Plus Jakarta Sans', size: 10, weight: '700' } },
                             ticks: { backdropColor: "transparent", min: 0, max: 100, stepSize: 20 }
                         }
                     },
@@ -961,12 +971,16 @@ __SUMMARIES_JSON__
         const barCanvas = document.getElementById("categoryBarChart");
         if (barCanvas && summaries.length > 0) {
             const barCategories = [
-                { label: 'Coding & SWE', filter: c => (c.test_case_id.includes('code') || c.test_case_id.includes('swe')) },
-                { label: 'Agent & Ops', filter: c => ['agent_tool', 'react', 'agent_devops', 'agent_data', 'agent_err', 'agent_open'].some(k => c.test_case_id.includes(k)) || (c.category === 'agent' && !c.test_case_id.includes('agent_sec')) },
-                { label: 'Math & Logic', filter: c => (c.test_case_id.includes('math') || c.test_case_id.includes('struct')) },
-                { label: 'Instruction & Lang', filter: c => ['ifeval', 'multi', 'needle'].some(k => c.test_case_id.includes(k)) },
-                { label: 'Safety & Defense', filter: c => ['hallucination', 'jailbreak', 'pii', 'agent_sec'].some(k => c.test_case_id.includes(k)) || c.category === 'safety' },
-                { label: 'Overall Acc', filter: () => true }
+                { label: 'SWE', filter: c => c.category === 'swe' || c.test_case_id.includes('swe') || c.test_case_id.includes('code') },
+                { label: 'Agent', filter: c => c.category === 'agent' || c.category === 'data_analyst' || ['agent_tool', 'react', 'agent_open'].some(k => c.test_case_id.includes(k)) },
+                { label: 'DevOps', filter: c => c.category === 'devops' || ['devops', 'error_rec'].some(k => c.test_case_id.includes(k)) },
+                { label: 'Security', filter: c => c.category === 'security' || c.test_case_id.includes('sec_audit') },
+                { label: 'Math', filter: c => c.category === 'math_logic' || c.test_case_id.includes('math') },
+                { label: 'Instruction', filter: c => ['instruction', 'structured_output'].includes(c.category) || ['if_', 'struct_'].some(k => c.test_case_id.includes(k)) },
+                { label: 'Multilingual', filter: c => c.category === 'multilingual' || c.test_case_id.includes('multi_') },
+                { label: 'LongContext', filter: c => c.category === 'long_context' || c.test_case_id.includes('needle_') },
+                { label: 'Safety', filter: c => c.category === 'safety' || ['hallucination', 'jailbreak', 'pii'].some(k => c.test_case_id.includes(k)) },
+                { label: 'Overall', filter: () => true }
             ];
 
             const barDatasets = summaries.map((s, idx) => {

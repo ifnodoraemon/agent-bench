@@ -8,6 +8,15 @@ pub enum Category {
     Foundation,
     Agent,
     Safety,
+    Swe,
+    Devops,
+    Security,
+    DataAnalyst,
+    MathLogic,
+    Multilingual,
+    LongContext,
+    Instruction,
+    StructuredOutput,
     Performance,
     #[serde(untagged)]
     Custom(String),
@@ -19,7 +28,35 @@ impl Category {
             Category::Foundation => "foundation",
             Category::Agent => "agent",
             Category::Safety => "safety",
+            Category::Swe => "swe",
+            Category::Devops => "devops",
+            Category::Security => "security",
+            Category::DataAnalyst => "data_analyst",
+            Category::MathLogic => "math_logic",
+            Category::Multilingual => "multilingual",
+            Category::LongContext => "long_context",
+            Category::Instruction => "instruction",
+            Category::StructuredOutput => "structured_output",
             Category::Performance => "performance",
+            Category::Custom(s) => s.as_str(),
+        }
+    }
+
+    pub fn display_name(&self) -> &str {
+        match self {
+            Category::Foundation => "Foundation (基础基准)",
+            Category::Agent => "Agent Core (智能体核心)",
+            Category::Safety => "Safety & Defense (安全防御)",
+            Category::Swe => "Coding & SWE (软件工程)",
+            Category::Devops => "DevOps & Cloud (云原生运维)",
+            Category::Security => "Security & Audit (网络安全攻防)",
+            Category::DataAnalyst => "Data & SQL (数据分析与BI)",
+            Category::MathLogic => "Math & Logic (数理逻辑推理)",
+            Category::Multilingual => "Multilingual (多语言与NLP)",
+            Category::LongContext => "Long Context (长文本与大海捞针)",
+            Category::Instruction => "Instruction (指令遵循与约束)",
+            Category::StructuredOutput => "Structured Output (结构化输出)",
+            Category::Performance => "Performance (吞吐与延迟)",
             Category::Custom(s) => s.as_str(),
         }
     }
