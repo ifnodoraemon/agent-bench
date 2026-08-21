@@ -23,6 +23,7 @@ pub struct EvaluationResult {
     pub passed: bool,
     pub score: f64,                     // 0.0 to 1.0
     pub reason: String,
+    pub dimensions: Option<crate::metrics::DimensionScores>,
     pub details: Option<serde_json::Value>,
 }
 
@@ -32,6 +33,7 @@ impl EvaluationResult {
             passed: true,
             score: 1.0,
             reason: reason.into(),
+            dimensions: None,
             details: None,
         }
     }
@@ -41,6 +43,7 @@ impl EvaluationResult {
             passed: false,
             score: 0.0,
             reason: reason.into(),
+            dimensions: None,
             details: None,
         }
     }
@@ -51,8 +54,14 @@ impl EvaluationResult {
             passed: clamped >= 0.5,
             score: clamped,
             reason: reason.into(),
+            dimensions: None,
             details: None,
         }
+    }
+
+    pub fn with_dimensions(mut self, dimensions: crate::metrics::DimensionScores) -> Self {
+        self.dimensions = Some(dimensions);
+        self
     }
 
     pub fn with_details(mut self, details: serde_json::Value) -> Self {

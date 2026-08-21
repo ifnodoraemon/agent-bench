@@ -86,6 +86,7 @@ impl BenchmarkOrchestrator {
                             category: case_cat,
                             passed: false,
                             score: 0.0,
+                            dimensions: None,
                             reason: format!("Evaluation timed out after {timeout_secs}s"),
                             latency_ms: timeout_secs * 1000,
                             ttft_ms: None,
@@ -152,6 +153,9 @@ impl BenchmarkOrchestrator {
             let summary = handle.await??;
             summaries.push(summary);
         }
+
+        // Compute Head-to-Head Elo ratings across all evaluated models
+        ModelBenchmarkSummary::compute_head_to_head_elo(&mut summaries);
 
         Ok(summaries)
     }
@@ -243,6 +247,7 @@ impl BenchmarkOrchestrator {
                 category: test_case.category,
                 passed: eval_res.passed,
                 score: eval_res.score,
+                dimensions: eval_res.dimensions,
                 reason: eval_res.reason,
                 latency_ms,
                 ttft_ms: None,
@@ -274,6 +279,7 @@ impl BenchmarkOrchestrator {
                     category: test_case.category,
                     passed: false,
                     score: 0.0,
+                    dimensions: None,
                     reason: format!("Model invocation error: {e}"),
                     latency_ms: start_time.elapsed().as_millis() as u64,
                     ttft_ms: None,
@@ -357,6 +363,7 @@ impl BenchmarkOrchestrator {
             category: test_case.category,
             passed: eval_res.passed,
             score: eval_res.score,
+            dimensions: eval_res.dimensions,
             reason: eval_res.reason,
             latency_ms,
             ttft_ms,

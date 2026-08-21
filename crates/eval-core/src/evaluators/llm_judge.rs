@@ -98,6 +98,7 @@ impl Evaluator for LlmJudgeEvaluator {
                 passed,
                 score: score.clamp(0.0, 1.0),
                 reason: format!("LLM-Judge ({:.2}/1.0): {}", score, reasoning),
+                dimensions: None,
                 details: Some(json_val),
             });
         }
@@ -113,6 +114,7 @@ impl Evaluator for LlmJudgeEvaluator {
             passed,
             score,
             reason: format!("LLM-Judge: {}", judge_resp.text.trim()),
+            dimensions: None,
             details: None,
         })
     }

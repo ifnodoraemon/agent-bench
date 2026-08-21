@@ -78,10 +78,20 @@ impl HtmlReporter {
                     "var(--accent-rose)"
                 };
 
+                let macro_acc_pct = s.macro_accuracy * 100.0;
+                let macro_acc_class = if macro_acc_pct >= 85.0 {
+                    "badge-success"
+                } else if macro_acc_pct >= 60.0 {
+                    "badge-warning"
+                } else {
+                    "badge-danger"
+                };
+
                 format!(
                     r#"<tr>
                     <td class="text-center">{}</td>
                     <td><div class="model-name-cell"><strong>{}</strong><span class="model-id">{}</span></div></td>
+                    <td><span class="elo-pill">{:.0}</span></td>
                     <td>
                         <div class="acc-cell">
                             <span class="badge {}">{:.1}%</span>
@@ -89,31 +99,31 @@ impl HtmlReporter {
                             <div class="mini-progress-bg"><div class="mini-progress-fill" style="width: {:.1}%; background: {};"></div></div>
                         </div>
                     </td>
-                    <td><span class="score-pill">{:.2}</span></td>
-                    <td>{:.0}ms</td>
+                    <td><span class="badge {}">{:.1}%</span></td>
+                    <td><span class="composite-pill">{:.1}</span></td>
                     <td>{:.0}ms</td>
                     <td><span class="ttft-badge">{}</span></td>
                     <td><strong>{:.1}</strong></td>
                     <td><span class="token-in">{}</span> / <span class="token-out">{}</span></td>
-                    <td>${:.5}</td>
                 </tr>"#,
                     rank_badge,
                     s.model_name,
                     s.model_id,
+                    s.elo_rating,
                     acc_class,
                     acc_pct,
                     s.passed_cases,
                     s.total_cases,
                     acc_pct,
                     bar_color,
-                    s.overall_score,
+                    macro_acc_class,
+                    macro_acc_pct,
+                    s.weighted_composite_index,
                     s.avg_latency_ms,
-                    s.p95_latency_ms,
                     ttft,
                     s.avg_tps,
                     s.total_prompt_tokens,
-                    s.total_completion_tokens,
-                    s.total_cost_usd
+                    s.total_completion_tokens
                 )
             })
             .collect::<Vec<_>>()
@@ -497,6 +507,36 @@ const HTML_TEMPLATE: &str = r##"<!DOCTYPE html>
             border-radius: 6px;
             border: 1px solid var(--border-soft);
         }
+        .elo-pill {
+            font-weight: 800;
+            color: #0284c7;
+            background: rgba(2, 132, 199, 0.12);
+            padding: 0.25rem 0.6rem;
+            border-radius: 999px;
+            border: 1px solid rgba(2, 132, 199, 0.3);
+            font-size: 0.88rem;
+        }
+        .composite-pill {
+            font-weight: 800;
+            color: #8b5cf6;
+            background: rgba(139, 92, 246, 0.12);
+            padding: 0.25rem 0.6rem;
+            border-radius: 6px;
+            border: 1px solid rgba(139, 92, 246, 0.3);
+            font-size: 0.88rem;
+        }
+        .dim-chip {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.3rem;
+            font-size: 0.74rem;
+            font-weight: 600;
+            padding: 0.15rem 0.45rem;
+            border-radius: 4px;
+            background: var(--bg-surface);
+            border: 1px solid var(--border-soft);
+            color: var(--text-body);
+        }
         .ttft-badge {
             color: var(--accent-emerald);
             font-weight: 600;
@@ -732,14 +772,14 @@ const HTML_TEMPLATE: &str = r##"<!DOCTYPE html>
                         <tr>
                             <th class="text-center" style="width: 70px;">排名</th>
                             <th>模型名称</th>
-                            <th style="min-width: 220px;">准确率 (Accuracy)</th>
-                            <th>综合评分</th>
-                            <th>平均延迟</th>
-                            <th>P95 延迟</th>
+                            <th>Elo 天梯分</th>
+                            <th style="min-width: 200px;">样本准确率 (Micro Acc)</th>
+                            <th>领域宏观均分 (Macro Acc)</th>
+                            <th>加权综合指数</th>
+                            <th>平均耗时</th>
                             <th>首字时间 (TTFT)</th>
                             <th>生成速率 (TPS)</th>
                             <th>Token 吞吐 (入/出)</th>
-                            <th>估算成本</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -1105,6 +1145,18 @@ __SUMMARIES_JSON__
                     ? '<span class="badge badge-success">PASS</span>'
                     : '<span class="badge badge-danger">FAIL</span>';
 
+                let dimHtml = '';
+                if (c.dimensions) {
+                    const d = c.dimensions;
+                    dimHtml = '<div style="display: flex; gap: 0.4rem; flex-wrap: wrap; margin-top: 0.4rem;">';
+                    if (d.goal_score !== undefined && d.goal_score !== null) dimHtml += `<span class="dim-chip">🎯 目标达成: <strong>${(d.goal_score * 100).toFixed(0)}%</strong></span>`;
+                    if (d.tool_score !== undefined && d.tool_score !== null) dimHtml += `<span class="dim-chip">🔧 工具精度: <strong>${(d.tool_score * 100).toFixed(0)}%</strong></span>`;
+                    if (d.reasoning_score !== undefined && d.reasoning_score !== null) dimHtml += `<span class="dim-chip">🧠 逻辑规划: <strong>${(d.reasoning_score * 100).toFixed(0)}%</strong></span>`;
+                    if (d.recovery_score !== undefined && d.recovery_score !== null) dimHtml += `<span class="dim-chip">🩹 容错自愈: <strong>${(d.recovery_score * 100).toFixed(0)}%</strong></span>`;
+                    if (d.efficiency_score !== undefined && d.efficiency_score !== null) dimHtml += `<span class="dim-chip">⚡ 步数经济性: <strong>${(d.efficiency_score * 100).toFixed(0)}%</strong></span>`;
+                    dimHtml += '</div>';
+                }
+
                 item.innerHTML = `
                     <div class="case-header" onclick="const b = this.nextElementSibling; b.style.display = b.style.display === 'none' ? 'block' : 'none';">
                         <div>
@@ -1122,6 +1174,7 @@ __SUMMARIES_JSON__
                         <div class="case-section">
                             <div class="section-label">判定结论 & 评分理由</div>
                             <div style="color: ${c.passed ? 'var(--accent-emerald)' : 'var(--accent-rose)'}; font-weight: 700;">${c.reason}</div>
+                            ${dimHtml}
                         </div>
                         <div class="case-section">
                             <div class="section-label">模型实际输出 (Model Output)</div>

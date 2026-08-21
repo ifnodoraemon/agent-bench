@@ -12,29 +12,47 @@ impl MarkdownReporter {
         md.push_str(&format!("*Generated at: {}*\n\n", now));
 
         md.push_str("## 1. Overall Leaderboard\n\n");
-        md.push_str("| Model | Accuracy | Avg Score | Avg Latency | P95 Latency | TTFT | TPS | In/Out Tokens | Total Cost |\n");
-        md.push_str("| :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- |\n");
+        md.push_str("| Rank | Model | Elo Rating | Micro Acc | Macro Acc | Composite Index | Avg Latency | P95 Latency | TTFT | TPS | In/Out Tokens |\n");
+        md.push_str("| :---: | :--- | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: |\n");
 
-        for s in summaries {
+        let mut sorted_summaries = summaries.to_vec();
+        sorted_summaries.sort_by(|a, b| {
+            b.overall_accuracy
+                .partial_cmp(&a.overall_accuracy)
+                .unwrap_or(std::cmp::Ordering::Equal)
+                .then_with(|| b.elo_rating.partial_cmp(&a.elo_rating).unwrap_or(std::cmp::Ordering::Equal))
+        });
+
+        for (i, s) in sorted_summaries.iter().enumerate() {
             let ttft_str = s
                 .avg_ttft_ms
                 .map(|t| format!("{:.0}ms", t))
                 .unwrap_or_else(|| "-".to_string());
 
+            let rank_emoji = match i {
+                0 => "🥇",
+                1 => "🥈",
+                2 => "🥉",
+                _ => "▫️",
+            };
+
             md.push_str(&format!(
-                "| **{}** | {:.1}% ({}/{}) | {:.2} | {:.0}ms | {:.0}ms | {} | {:.1} | {}/{} | ${:.5} |\n",
+                "| {} {} | **{}** | **{:.0}** | {:.1}% ({}/{}) | **{:.1}%** | **{:.1}** | {:.0}ms | {:.0}ms | {} | {:.1} | {}/{} |\n",
+                rank_emoji,
+                i + 1,
                 s.model_name,
+                s.elo_rating,
                 s.overall_accuracy * 100.0,
                 s.passed_cases,
                 s.total_cases,
-                s.overall_score,
+                s.macro_accuracy * 100.0,
+                s.weighted_composite_index,
                 s.avg_latency_ms,
                 s.p95_latency_ms,
                 ttft_str,
                 s.avg_tps,
                 s.total_prompt_tokens,
                 s.total_completion_tokens,
-                s.total_cost_usd
             ));
         }
 

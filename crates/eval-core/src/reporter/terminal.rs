@@ -13,20 +13,29 @@ impl TerminalReporter {
             .apply_modifier(UTF8_ROUND_CORNERS)
             .set_header(vec![
                 Cell::new("Model").add_attribute(Attribute::Bold),
-                Cell::new("Accuracy").add_attribute(Attribute::Bold),
-                Cell::new("Score").add_attribute(Attribute::Bold),
+                Cell::new("Elo Rating").add_attribute(Attribute::Bold),
+                Cell::new("Micro Acc").add_attribute(Attribute::Bold),
+                Cell::new("Macro Acc").add_attribute(Attribute::Bold),
+                Cell::new("Composite").add_attribute(Attribute::Bold),
                 Cell::new("Avg Latency").add_attribute(Attribute::Bold),
                 Cell::new("P95 Latency").add_attribute(Attribute::Bold),
                 Cell::new("TTFT").add_attribute(Attribute::Bold),
                 Cell::new("TPS").add_attribute(Attribute::Bold),
                 Cell::new("Tokens (In/Out)").add_attribute(Attribute::Bold),
-                Cell::new("Cost ($)").add_attribute(Attribute::Bold),
             ]);
 
-        for summary in summaries {
-            let acc_color = if summary.overall_accuracy >= 0.8 {
+        let mut sorted_summaries = summaries.to_vec();
+        sorted_summaries.sort_by(|a, b| {
+            b.overall_accuracy
+                .partial_cmp(&a.overall_accuracy)
+                .unwrap_or(std::cmp::Ordering::Equal)
+                .then_with(|| b.elo_rating.partial_cmp(&a.elo_rating).unwrap_or(std::cmp::Ordering::Equal))
+        });
+
+        for summary in &sorted_summaries {
+            let acc_color = if summary.overall_accuracy >= 0.85 {
                 Color::Green
-            } else if summary.overall_accuracy >= 0.5 {
+            } else if summary.overall_accuracy >= 0.60 {
                 Color::Yellow
             } else {
                 Color::Red
@@ -39,6 +48,7 @@ impl TerminalReporter {
 
             table.add_row(vec![
                 Cell::new(&summary.model_name).add_attribute(Attribute::Bold),
+                Cell::new(format!("{:.0}", summary.elo_rating)).fg(Color::Cyan),
                 Cell::new(format!(
                     "{:.1}% ({}/{})",
                     summary.overall_accuracy * 100.0,
@@ -46,7 +56,8 @@ impl TerminalReporter {
                     summary.total_cases
                 ))
                 .fg(acc_color),
-                Cell::new(format!("{:.2}", summary.overall_score)),
+                Cell::new(format!("{:.1}%", summary.macro_accuracy * 100.0)).fg(acc_color),
+                Cell::new(format!("{:.1}", summary.weighted_composite_index)).fg(Color::Magenta),
                 Cell::new(format!("{:.0}ms", summary.avg_latency_ms)),
                 Cell::new(format!("{:.0}ms", summary.p95_latency_ms)),
                 Cell::new(ttft_str),
@@ -55,7 +66,6 @@ impl TerminalReporter {
                     "{}/{}",
                     summary.total_prompt_tokens, summary.total_completion_tokens
                 )),
-                Cell::new(format!("${:.5}", summary.total_cost_usd)),
             ]);
         }
 

@@ -60,12 +60,14 @@ impl TrajectoryEvaluator {
             }
             if let Some(trs) = &step.tool_results {
                 for (_id, res) in trs {
-                    let truncated = if res.len() > 1000 {
-                        format!("{}... [truncated]", &res[..1000])
+                    // DeepSeek-V4 Flash supports 1M context, preserve full tool output
+                    let text_out = if res.chars().count() > 100_000 {
+                        let s: String = res.chars().take(100_000).collect();
+                        format!("{}... [truncated at 100,000 chars]", s)
                     } else {
                         res.clone()
                     };
-                    steps_text.push_str(&format!("Tool Output:\n{}\n", truncated.trim()));
+                    steps_text.push_str(&format!("Tool Output:\n{}\n", text_out.trim()));
                 }
             }
             if let Some(err) = &step.error {
@@ -137,16 +139,15 @@ Respond strictly in JSON format as follows:
         let resp = judge.chat_complete(&messages, None).await?;
 
         if let Some(json_val) = JsonSchemaEvaluator::extract_json(&resp.text) {
+            let g = json_val.get("goal_score").and_then(|v| v.as_f64()).unwrap_or(0.0);
+            let t = json_val.get("tool_score").and_then(|v| v.as_f64()).unwrap_or(0.0);
+            let r = json_val.get("reasoning_score").and_then(|v| v.as_f64()).unwrap_or(0.0);
+            let e = json_val.get("recovery_score").and_then(|v| v.as_f64()).unwrap_or(0.0);
+
             let composite_score = json_val
                 .get("composite_score")
                 .and_then(|s| s.as_f64())
-                .unwrap_or_else(|| {
-                    let g = json_val.get("goal_score").and_then(|v| v.as_f64()).unwrap_or(0.0);
-                    let t = json_val.get("tool_score").and_then(|v| v.as_f64()).unwrap_or(0.0);
-                    let r = json_val.get("reasoning_score").and_then(|v| v.as_f64()).unwrap_or(0.0);
-                    let e = json_val.get("recovery_score").and_then(|v| v.as_f64()).unwrap_or(0.0);
-                    (g * 0.40) + (t * 0.25) + (r * 0.20) + (e * 0.15)
-                })
+                .unwrap_or_else(|| (g * 0.40) + (t * 0.25) + (r * 0.20) + (e * 0.15))
                 .clamp(0.0, 1.0);
 
             let passed = json_val
@@ -160,10 +161,19 @@ Respond strictly in JSON format as follows:
                 .unwrap_or("LLM Judge evaluation completed")
                 .to_string();
 
+            let dimensions = eval_core::metrics::DimensionScores {
+                goal_score: Some(g),
+                tool_score: Some(t),
+                reasoning_score: Some(r),
+                recovery_score: Some(e),
+                efficiency_score: Some(1.0 - (trajectory.total_turns as f64 / 10.0).min(1.0)),
+            };
+
             Ok(EvaluationResult {
                 passed,
                 score: composite_score,
                 reason: format!("Agent LLM-Judge ({:.2}/1.00): {}", composite_score, reasoning),
+                dimensions: Some(dimensions),
                 details: Some(json_val),
             })
         } else {
@@ -299,10 +309,19 @@ Respond strictly in JSON format as follows:
             "had_error_in_trajectory": had_error
         });
 
+        let dimensions = eval_core::metrics::DimensionScores {
+            goal_score: Some(goal_score),
+            tool_score: Some(tool_selection_score),
+            reasoning_score: Some(loop_score),
+            recovery_score: Some(error_recovery_score),
+            efficiency_score: Some(schema_validity_score),
+        };
+
         EvaluationResult {
             passed,
             score: (composite_score as f64).clamp(0.0, 1.0),
             reason: format!("Agent 5-Dim Score ({:.2}/1.00): {}", composite_score, reason_str),
+            dimensions: Some(dimensions),
             details: Some(details),
         }
     }
