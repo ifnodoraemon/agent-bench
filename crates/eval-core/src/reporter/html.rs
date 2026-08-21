@@ -8,8 +8,9 @@ impl HtmlReporter {
         let now = Local::now().format("%Y-%m-%d %H:%M:%S").to_string();
         let summaries_json = serde_json::to_string(summaries)
             .unwrap_or_else(|_| "[]".to_string())
-            .replace("</script>", "<\\/script>")
-            .replace("</SCRIPT>", "<\\/SCRIPT>");
+            .replace('<', "\\u003c")
+            .replace('>', "\\u003e")
+            .replace('&', "\\u0026");
 
         let mut sorted_summaries = summaries.to_vec();
         sorted_summaries.sort_by(|a, b| {
