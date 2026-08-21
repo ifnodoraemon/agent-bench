@@ -181,6 +181,18 @@ const HTML_TEMPLATE: &str = r##"<!DOCTYPE html>
             --accent-sky: #0284c7;
             --sky-bg: rgba(2, 132, 199, 0.08);
             --sky-border: rgba(2, 132, 199, 0.22);
+            --elo-text: #0284c7;
+            --elo-bg: rgba(2, 132, 199, 0.1);
+            --elo-border: rgba(2, 132, 199, 0.28);
+            --composite-text: #7c3aed;
+            --composite-bg: rgba(124, 58, 237, 0.1);
+            --composite-border: rgba(124, 58, 237, 0.28);
+            --dim-chip-bg: #ffffff;
+            --dim-chip-border: #e2e8f0;
+            --dim-chip-text: #334155;
+            --tag-bg: #f1f5f9;
+            --tag-border: #e2e8f0;
+            --tag-text: #475569;
             --shadow-sm: 0 1px 2px 0 rgba(15, 23, 42, 0.03);
             --shadow-card: 0 1px 3px 0 rgba(15, 23, 42, 0.04), 0 1px 2px -1px rgba(15, 23, 42, 0.02);
             --shadow-hover: 0 4px 6px -1px rgba(15, 23, 42, 0.06), 0 2px 4px -2px rgba(15, 23, 42, 0.03);
@@ -212,18 +224,30 @@ const HTML_TEMPLATE: &str = r##"<!DOCTYPE html>
             --primary: #6366f1;
             --primary-bg: rgba(99, 102, 241, 0.14);
             --primary-border: rgba(99, 102, 241, 0.32);
-            --accent-emerald: #22c55e;
-            --emerald-bg: rgba(34, 197, 94, 0.12);
-            --emerald-border: rgba(34, 197, 94, 0.25);
-            --accent-amber: #eab308;
-            --amber-bg: rgba(234, 179, 8, 0.12);
-            --amber-border: rgba(234, 179, 8, 0.25);
-            --accent-rose: #ef4444;
-            --rose-bg: rgba(239, 68, 68, 0.12);
-            --rose-border: rgba(239, 68, 68, 0.25);
+            --accent-emerald: #4ade80;
+            --emerald-bg: rgba(74, 222, 128, 0.14);
+            --emerald-border: rgba(74, 222, 128, 0.3);
+            --accent-amber: #facc15;
+            --amber-bg: rgba(250, 204, 21, 0.14);
+            --amber-border: rgba(250, 204, 21, 0.3);
+            --accent-rose: #f87171;
+            --rose-bg: rgba(248, 113, 113, 0.14);
+            --rose-border: rgba(248, 113, 113, 0.3);
             --accent-sky: #38bdf8;
-            --sky-bg: rgba(56, 189, 248, 0.12);
-            --sky-border: rgba(56, 189, 248, 0.25);
+            --sky-bg: rgba(56, 189, 248, 0.14);
+            --sky-border: rgba(56, 189, 248, 0.3);
+            --elo-text: #38bdf8;
+            --elo-bg: rgba(56, 189, 248, 0.16);
+            --elo-border: rgba(56, 189, 248, 0.35);
+            --composite-text: #c084fc;
+            --composite-bg: rgba(192, 132, 252, 0.16);
+            --composite-border: rgba(192, 132, 252, 0.35);
+            --dim-chip-bg: #18181b;
+            --dim-chip-border: #27272a;
+            --dim-chip-text: #e4e4e7;
+            --tag-bg: #18181b;
+            --tag-border: #27272a;
+            --tag-text: #a1a1aa;
             --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.4);
             --shadow-card: 0 1px 3px 0 rgba(0, 0, 0, 0.4), 0 1px 2px -1px rgba(0, 0, 0, 0.3);
             --shadow-hover: 0 4px 10px -1px rgba(0, 0, 0, 0.6);
@@ -509,20 +533,20 @@ const HTML_TEMPLATE: &str = r##"<!DOCTYPE html>
         }
         .elo-pill {
             font-weight: 800;
-            color: #0284c7;
-            background: rgba(2, 132, 199, 0.12);
-            padding: 0.25rem 0.6rem;
+            color: var(--elo-text);
+            background: var(--elo-bg);
+            padding: 0.25rem 0.65rem;
             border-radius: 999px;
-            border: 1px solid rgba(2, 132, 199, 0.3);
+            border: 1px solid var(--elo-border);
             font-size: 0.88rem;
         }
         .composite-pill {
             font-weight: 800;
-            color: #8b5cf6;
-            background: rgba(139, 92, 246, 0.12);
-            padding: 0.25rem 0.6rem;
+            color: var(--composite-text);
+            background: var(--composite-bg);
+            padding: 0.25rem 0.65rem;
             border-radius: 6px;
-            border: 1px solid rgba(139, 92, 246, 0.3);
+            border: 1px solid var(--composite-border);
             font-size: 0.88rem;
         }
         .dim-chip {
@@ -531,15 +555,15 @@ const HTML_TEMPLATE: &str = r##"<!DOCTYPE html>
             gap: 0.3rem;
             font-size: 0.74rem;
             font-weight: 600;
-            padding: 0.15rem 0.45rem;
+            padding: 0.18rem 0.48rem;
             border-radius: 4px;
-            background: var(--bg-surface);
-            border: 1px solid var(--border-soft);
-            color: var(--text-body);
+            background: var(--dim-chip-bg);
+            border: 1px solid var(--dim-chip-border);
+            color: var(--dim-chip-text);
         }
         .ttft-badge {
             color: var(--accent-emerald);
-            font-weight: 600;
+            font-weight: 700;
         }
         .token-in { color: var(--accent-sky); font-weight: 600; }
         .token-out { color: var(--accent-emerald); font-weight: 600; }
@@ -656,15 +680,15 @@ const HTML_TEMPLATE: &str = r##"<!DOCTYPE html>
         }
         .case-category-tag {
             display: inline-block;
-            background: var(--bg-subtle);
-            color: var(--text-muted);
+            background: var(--tag-bg);
+            color: var(--tag-text);
             font-size: 0.74rem;
             padding: 0.15rem 0.5rem;
             border-radius: 4px;
             margin: 0 0.5rem;
             font-weight: 700;
             letter-spacing: 0.03em;
-            border: 1px solid var(--border-soft);
+            border: 1px solid var(--tag-border);
         }
         .case-meta {
             display: flex;
@@ -846,6 +870,18 @@ __SUMMARIES_JSON__
         let currentFilter = "all";
         let currentSearch = "";
 
+        const urlParams = new URLSearchParams(window.location.search);
+        const urlTheme = urlParams.get('theme');
+        if (urlTheme) {
+            document.documentElement.setAttribute('data-theme', urlTheme);
+            localStorage.setItem('agent_bench_theme', urlTheme);
+        } else {
+            const savedTheme = localStorage.getItem('agent_bench_theme');
+            if (savedTheme) {
+                document.documentElement.setAttribute('data-theme', savedTheme);
+            }
+        }
+
         function toggleTheme() {
             const current = document.documentElement.getAttribute('data-theme') || 'warm';
             const next = current === 'warm' ? 'dark' : 'warm';
@@ -857,16 +893,26 @@ __SUMMARIES_JSON__
         function updateChartThemes() {
             const isDark = (document.documentElement.getAttribute('data-theme') || 'warm') === 'dark';
             const labelColor = isDark ? '#f8fafc' : '#0f172a';
-            const subColor = isDark ? '#94a3b8' : '#475569';
+            const subColor = isDark ? '#a1a1aa' : '#475569';
             const gridColor = isDark ? 'rgba(255, 255, 255, 0.08)' : 'rgba(148, 163, 184, 0.2)';
             const radarAngleColor = isDark ? 'rgba(255, 255, 255, 0.12)' : 'rgba(148, 163, 184, 0.25)';
+            const tooltipBg = isDark ? '#18181b' : '#ffffff';
+            const tooltipTitle = isDark ? '#fafafa' : '#0f172a';
+            const tooltipBody = isDark ? '#d4d4d8' : '#334155';
+            const tooltipBorder = isDark ? '#27272a' : '#e2e8f0';
 
             if (window.radarChartInstance) {
                 window.radarChartInstance.options.scales.r.angleLines.color = radarAngleColor;
                 window.radarChartInstance.options.scales.r.grid.color = gridColor;
-                window.radarChartInstance.options.scales.r.pointLabels.color = isDark ? '#f1f5f9' : '#334155';
+                window.radarChartInstance.options.scales.r.pointLabels.color = labelColor;
                 window.radarChartInstance.options.scales.r.ticks.color = subColor;
                 window.radarChartInstance.options.plugins.legend.labels.color = labelColor;
+                if (!window.radarChartInstance.options.plugins.tooltip) window.radarChartInstance.options.plugins.tooltip = {};
+                window.radarChartInstance.options.plugins.tooltip.backgroundColor = tooltipBg;
+                window.radarChartInstance.options.plugins.tooltip.titleColor = tooltipTitle;
+                window.radarChartInstance.options.plugins.tooltip.bodyColor = tooltipBody;
+                window.radarChartInstance.options.plugins.tooltip.borderColor = tooltipBorder;
+                window.radarChartInstance.options.plugins.tooltip.borderWidth = 1;
                 window.radarChartInstance.update();
             }
             if (window.barChartInstance) {
@@ -874,19 +920,13 @@ __SUMMARIES_JSON__
                 window.barChartInstance.options.scales.y.grid.color = gridColor;
                 window.barChartInstance.options.scales.y.ticks.color = subColor;
                 window.barChartInstance.options.plugins.legend.labels.color = labelColor;
+                if (!window.barChartInstance.options.plugins.tooltip) window.barChartInstance.options.plugins.tooltip = {};
+                window.barChartInstance.options.plugins.tooltip.backgroundColor = tooltipBg;
+                window.barChartInstance.options.plugins.tooltip.titleColor = tooltipTitle;
+                window.barChartInstance.options.plugins.tooltip.bodyColor = tooltipBody;
+                window.barChartInstance.options.plugins.tooltip.borderColor = tooltipBorder;
+                window.barChartInstance.options.plugins.tooltip.borderWidth = 1;
                 window.barChartInstance.update();
-            }
-        }
-
-        const urlParams = new URLSearchParams(window.location.search);
-        const urlTheme = urlParams.get('theme');
-        if (urlTheme) {
-            document.documentElement.setAttribute('data-theme', urlTheme);
-            localStorage.setItem('agent_bench_theme', urlTheme);
-        } else {
-            const savedTheme = localStorage.getItem('agent_bench_theme');
-            if (savedTheme) {
-                document.documentElement.setAttribute('data-theme', savedTheme);
             }
         }
 
