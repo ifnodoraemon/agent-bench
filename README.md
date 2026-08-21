@@ -2,6 +2,16 @@
 
 `agent-bench` 是一个基于 **Rust** 开发的高性能、模块化的大语言模型与智能体综合能力评测系统。
 
+<div align="center">
+  <img src="docs/images/dashboard_dark.png" alt="agent-bench Dashboard Dark Preview" width="100%" />
+</div>
+
+<details>
+  <summary><b>☀️ 点击展开浅色模式大屏 (Light Mode Preview)</b></summary>
+  <br/>
+  <img src="docs/images/dashboard_light.png" alt="agent-bench Dashboard Light Preview" width="100%" />
+</details>
+
 ## ✨ 核心特性
 
 - **🎯 全维度评测覆盖 (300+ 精品测试用例，17 个专业数据集)**：
