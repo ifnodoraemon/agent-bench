@@ -1,11 +1,18 @@
 use anyhow::{Context, Result};
+use chrono::Local;
+use eval_core::dataset::{Category, Dataset, DatasetLoader};
+use eval_core::model::{create_client, ApiProtocol, ModelConfig};
+use eval_suites::BenchmarkOrchestrator;
 use serde::{Deserialize, Serialize};
 use std::path::{Path, PathBuf};
+use std::sync::Arc;
+use std::time::Instant;
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio::net::TcpListener;
+use tokio::sync::RwLock;
 use tracing::{error, info, warn};
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct RunMeta {
     pub filename: String,
     pub timestamp: String,
@@ -13,6 +20,57 @@ pub struct RunMeta {
     pub size_human: String,
     pub models: Vec<String>,
     pub total_cases: usize,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct LiveBenchmarkState {
+    pub status: String, // "idle" | "running" | "completed" | "error"
+    pub model_name: String,
+    pub total_cases: usize,
+    pub completed_cases: usize,
+    pub passed_cases: usize,
+    pub current_case: Option<String>,
+    pub live_cases: Vec<LiveCaseItem>,
+    pub started_at: Option<String>,
+    pub elapsed_secs: u64,
+    pub result_file: Option<String>,
+    pub message: Option<String>,
+}
+
+impl Default for LiveBenchmarkState {
+    fn default() -> Self {
+        Self {
+            status: "idle".to_string(),
+            model_name: "Mock-Pro-v1".to_string(),
+            total_cases: 0,
+            completed_cases: 0,
+            passed_cases: 0,
+            current_case: None,
+            live_cases: Vec::new(),
+            started_at: None,
+            elapsed_secs: 0,
+            result_file: None,
+            message: None,
+        }
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct LiveCaseItem {
+    pub id: String,
+    pub category: String,
+    pub passed: bool,
+    pub score: f64,
+    pub latency_ms: u64,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct BenchmarkRunRequest {
+    pub category: Option<String>,
+    pub difficulty: Option<String>,
+    pub limit: Option<usize>,
+    pub model: Option<String>,
+    pub concurrency: Option<usize>,
 }
 
 pub async fn execute(
@@ -28,7 +86,10 @@ pub async fn execute(
     let results_dir = resolve_results_dir(results_path.as_deref());
     info!("Using results directory: {}", results_dir.display());
 
-    // 3. If results_path is specified, copy or update data/default_results.json
+    // 3. Shared live state
+    let live_state = Arc::new(RwLock::new(LiveBenchmarkState::default()));
+
+    // 4. If results_path is specified, copy or update data/default_results.json
     if let Some(ref rpath) = results_path {
         let p = Path::new(rpath);
         let target_file = dist_dir.join("data").join("default_results.json");
@@ -70,7 +131,7 @@ pub async fn execute(
     println!("║  🌐 本地浏览器访问: http://localhost:{:<5}                        ║", port);
     println!("║  📁 静态资源目录:   {:<46} ║", truncate_str(&dist_dir.display().to_string(), 46));
     println!("║  📊 历史评测目录:   {:<46} ║", truncate_str(&results_dir.display().to_string(), 46));
-    println!("║  🔌 开放 API 接口:  /api/runs (评测列表) | /api/runs/:file (流式数据) ║");
+    println!("║  🚀 实时评测接口:   POST /api/benchmark/run | GET /api/benchmark/status  ║");
     println!("║  ⌨️  退出服务:       按 Ctrl + C 即可终止进程                      ║");
     println!("╚════════════════════════════════════════════════════════════════════╝\n");
 
@@ -85,15 +146,17 @@ pub async fn execute(
 
         let base_dir = dist_dir.clone();
         let r_dir = results_dir.clone();
+        let live_state_clone = Arc::clone(&live_state);
 
         tokio::spawn(async move {
-            let mut buf = [0u8; 4096];
+            let mut buf = [0u8; 8192];
             let n = match socket.read(&mut buf).await {
                 Ok(n) if n > 0 => n,
                 _ => return,
             };
 
-            let req_str = String::from_utf8_lossy(&buf[..n]);
+            let req_data = &buf[..n];
+            let req_str = String::from_utf8_lossy(req_data);
             let first_line = req_str.lines().next().unwrap_or("");
             let parts: Vec<&str> = first_line.split_whitespace().collect();
 
@@ -103,7 +166,10 @@ pub async fn execute(
 
             let method = parts[0];
             let is_head = method == "HEAD";
-            if method != "GET" && !is_head {
+            let is_post = method == "POST";
+            let is_get = method == "GET";
+
+            if !is_get && !is_head && !is_post {
                 let _ = socket.write_all(b"HTTP/1.1 405 Method Not Allowed\r\nContent-Length: 0\r\n\r\n").await;
                 return;
             }
@@ -113,7 +179,7 @@ pub async fn execute(
                 req_path = &req_path[..pos];
             }
 
-            // 1. API route: /api/runs
+            // 1. API: /api/runs
             if req_path == "/api/runs" {
                 let runs = scan_runs_meta(&r_dir);
                 let json_bytes = serde_json::to_vec(&runs).unwrap_or_else(|_| b"[]".to_vec());
@@ -128,7 +194,7 @@ pub async fn execute(
                 return;
             }
 
-            // 2. API route: /api/runs/:filename
+            // 2. API: /api/runs/:filename
             if let Some(filename) = req_path.strip_prefix("/api/runs/") {
                 let safe_filename = filename.trim_matches('/');
                 let target_file = r_dir.join(safe_filename);
@@ -154,7 +220,7 @@ pub async fn execute(
                 return;
             }
 
-            // 3. API route: /api/system
+            // 3. API: /api/system
             if req_path == "/api/system" {
                 let info = serde_json::json!({
                     "engine": "agent-bench (Rust Tokio)",
@@ -174,7 +240,96 @@ pub async fn execute(
                 return;
             }
 
-            // 4. Static files
+            // 4. API: /api/benchmark/status
+            if req_path == "/api/benchmark/status" {
+                let state_guard = live_state_clone.read().await;
+                let bytes = serde_json::to_vec(&*state_guard).unwrap_or_else(|_| b"{}".to_vec());
+                let header = format!(
+                    "HTTP/1.1 200 OK\r\nContent-Type: application/json; charset=utf-8\r\nContent-Length: {}\r\nConnection: close\r\nAccess-Control-Allow-Origin: *\r\n\r\n",
+                    bytes.len()
+                );
+                let _ = socket.write_all(header.as_bytes()).await;
+                if !is_head {
+                    let _ = socket.write_all(&bytes).await;
+                }
+                return;
+            }
+
+            // 5. API: /api/benchmark/run (POST)
+            if req_path == "/api/benchmark/run" && is_post {
+                // Parse body if present
+                let mut req_body = BenchmarkRunRequest {
+                    category: None,
+                    difficulty: None,
+                    limit: Some(10),
+                    model: Some("mock-pro".to_string()),
+                    concurrency: Some(4),
+                };
+
+                if let Some(pos) = req_str.find("\r\n\r\n") {
+                    let body_str = &req_str[pos + 4..];
+                    if let Ok(parsed) = serde_json::from_str::<BenchmarkRunRequest>(body_str) {
+                        req_body = parsed;
+                    }
+                }
+
+                // Check if already running
+                {
+                    let state_guard = live_state_clone.read().await;
+                    if state_guard.status == "running" {
+                        let resp = serde_json::json!({
+                            "status": "error",
+                            "message": "评测任务正在运行中，请等待完成或终止后再试。"
+                        });
+                        let bytes = serde_json::to_vec(&resp).unwrap();
+                        let header = format!(
+                            "HTTP/1.1 409 Conflict\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\nAccess-Control-Allow-Origin: *\r\n\r\n",
+                            bytes.len()
+                        );
+                        let _ = socket.write_all(header.as_bytes()).await;
+                        let _ = socket.write_all(&bytes).await;
+                        return;
+                    }
+                }
+
+                // Spawn benchmark task
+                let task_state = Arc::clone(&live_state_clone);
+                let task_r_dir = r_dir.clone();
+                tokio::spawn(async move {
+                    run_live_benchmark_task(task_state, task_r_dir, req_body).await;
+                });
+
+                let resp = serde_json::json!({
+                    "status": "started",
+                    "message": "实时评测已成功启动"
+                });
+                let bytes = serde_json::to_vec(&resp).unwrap();
+                let header = format!(
+                    "HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\nAccess-Control-Allow-Origin: *\r\n\r\n",
+                    bytes.len()
+                );
+                let _ = socket.write_all(header.as_bytes()).await;
+                let _ = socket.write_all(&bytes).await;
+                return;
+            }
+
+            // 6. API: /api/benchmark/stop (POST)
+            if req_path == "/api/benchmark/stop" && is_post {
+                let mut state_guard = live_state_clone.write().await;
+                state_guard.status = "idle".to_string();
+                state_guard.message = Some("已手动终止评测".to_string());
+                let resp = serde_json::json!({ "status": "stopped" });
+                let bytes = serde_json::to_vec(&resp).unwrap();
+                let header = format!(
+                    "HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\nAccess-Control-Allow-Origin: *\r\n\r\n",
+                    bytes.len()
+                );
+                let _ = socket.write_all(header.as_bytes()).await;
+                let _ = socket.write_all(&bytes).await;
+                return;
+            }
+
+            // 7. Static files
             let clean_path = req_path.trim_start_matches('/');
             let target_path = if clean_path.is_empty() {
                 base_dir.join("index.html")
@@ -216,6 +371,178 @@ pub async fn execute(
             }
         });
     }
+}
+
+async fn run_live_benchmark_task(
+    live_state: Arc<RwLock<LiveBenchmarkState>>,
+    results_dir: PathBuf,
+    req: BenchmarkRunRequest,
+) {
+    let model_choice = req.model.unwrap_or_else(|| "mock-pro".to_string());
+    let concurrency = req.concurrency.unwrap_or(4).clamp(1, 32);
+    let limit = req.limit.unwrap_or(10);
+
+    // Update state to running
+    {
+        let mut st = live_state.write().await;
+        st.status = "running".to_string();
+        st.model_name = model_choice.clone();
+        st.completed_cases = 0;
+        st.passed_cases = 0;
+        st.live_cases.clear();
+        st.started_at = Some(Local::now().format("%Y-%m-%d %H:%M:%S").to_string());
+        st.elapsed_secs = 0;
+        st.result_file = None;
+        st.message = Some("正在加载测试集与初始化评测沙箱...".to_string());
+    }
+
+    let start_instant = Instant::now();
+
+    // 1. Build dataset
+    let mut combined_dataset = Dataset::new("live_benchmark");
+    let mut files = Vec::new();
+    let datasets_dir = resolve_datasets_dir();
+    if let Ok(_) = collect_jsonl_files(&datasets_dir, &mut files) {
+        for f in files {
+            if let Ok(ds) = DatasetLoader::load_from_jsonl(&f) {
+                combined_dataset.test_cases.extend(ds.test_cases);
+            }
+        }
+    }
+
+    if let Some(ref cat_str) = req.category {
+        if cat_str != "all" && !cat_str.is_empty() {
+            let cat = match cat_str.to_lowercase().as_str() {
+                "foundation" => Category::Foundation,
+                "agent" => Category::Agent,
+                "safety" => Category::Safety,
+                "swe" | "coding" => Category::Swe,
+                "devops" | "sysadmin" => Category::Devops,
+                "security" | "cybersecurity" => Category::Security,
+                "data" | "data_analyst" | "sql" => Category::DataAnalyst,
+                "math" | "math_logic" => Category::MathLogic,
+                "multilingual" => Category::Multilingual,
+                "long_context" => Category::LongContext,
+                "instruction" => Category::Instruction,
+                "structured" | "structured_output" => Category::StructuredOutput,
+                "medical" | "health" | "med" => Category::Medical,
+                "legal" | "law" => Category::Legal,
+                "finance" | "fin" | "econ" => Category::Finance,
+                "science" | "natsci" => Category::Science,
+                "humanities" | "history" | "philosophy" => Category::Humanities,
+                "performance" => Category::Performance,
+                other => Category::Custom(other.to_string()),
+            };
+            combined_dataset = combined_dataset.filter_by_category(&cat);
+        }
+    }
+
+    if let Some(ref diff) = req.difficulty {
+        if diff != "all" && !diff.is_empty() {
+            combined_dataset = combined_dataset.filter_by_difficulty(diff);
+        }
+    }
+
+    if limit < combined_dataset.test_cases.len() {
+        combined_dataset.test_cases.truncate(limit);
+    }
+    let total_cases = combined_dataset.test_cases.len();
+
+    {
+        let mut st = live_state.write().await;
+        st.total_cases = total_cases;
+        st.message = Some(format!("开始评测，共 {} 题 (并发: {})", total_cases, concurrency));
+    }
+
+    // 2. Create model client
+    let mut model_config = match model_choice.as_str() {
+        "mock-fast" => ModelConfig::new("mock-fast", "mock", "Mock-Fast-v1"),
+        _ => ModelConfig::new("mock-pro", "mock", "Mock-Pro-v1"),
+    };
+    model_config.protocol = ApiProtocol::Mock;
+
+    let client = match create_client(model_config) {
+        Ok(c) => c,
+        Err(e) => {
+            let mut st = live_state.write().await;
+            st.status = "error".to_string();
+            st.message = Some(format!("创建模型客户端失败: {e}"));
+            return;
+        }
+    };
+
+    // 3. Run benchmark
+    let orchestrator = BenchmarkOrchestrator::new(concurrency);
+    let summary_res = orchestrator.run_benchmark(client, &combined_dataset).await;
+
+    match summary_res {
+        Ok(summary) => {
+            let elapsed = start_instant.elapsed().as_secs();
+            let timestamp = Local::now().format("%Y%m%d_%H%M%S").to_string();
+            let filename = format!("eval_results_{}.json", timestamp);
+            let out_path = results_dir.join(&filename);
+
+            let summaries = vec![summary.clone()];
+            let json_str = serde_json::to_string_pretty(&summaries).unwrap_or_default();
+            let _ = std::fs::write(&out_path, json_str);
+
+            let mut st = live_state.write().await;
+            st.status = "completed".to_string();
+            st.completed_cases = total_cases;
+            st.passed_cases = summary.passed_cases;
+            st.elapsed_secs = elapsed;
+            st.result_file = Some(filename.clone());
+            st.message = Some(format!("评测完成! 准确率: {:.1}%, 结果已保存至 {}", summary.overall_accuracy * 100.0, filename));
+
+            // Copy recent cases
+            st.live_cases = summary.case_results.iter().take(30).map(|c| LiveCaseItem {
+                id: c.test_case_id.clone(),
+                category: c.category.as_str().to_string(),
+                passed: c.passed,
+                score: c.score,
+                latency_ms: c.latency_ms,
+            }).collect();
+        }
+        Err(e) => {
+            let mut st = live_state.write().await;
+            st.status = "error".to_string();
+            st.message = Some(format!("评测执行出错: {e}"));
+        }
+    }
+}
+
+fn collect_jsonl_files(path: &Path, files: &mut Vec<PathBuf>) -> Result<()> {
+    if path.is_file() {
+        if path.extension().and_then(|s| s.to_str()) == Some("jsonl") {
+            files.push(path.to_path_buf());
+        }
+    } else if path.is_dir() {
+        for entry in std::fs::read_dir(path)? {
+            let entry = entry?;
+            let child_path = entry.path();
+            if child_path.is_dir() {
+                collect_jsonl_files(&child_path, files)?;
+            } else if child_path.extension().and_then(|s| s.to_str()) == Some("jsonl") {
+                files.push(child_path);
+            }
+        }
+    }
+    Ok(())
+}
+
+fn resolve_datasets_dir() -> PathBuf {
+    let candidates = [
+        PathBuf::from("datasets"),
+        PathBuf::from("../datasets"),
+        PathBuf::from("../../datasets"),
+    ];
+
+    for c in &candidates {
+        if c.is_dir() {
+            return c.canonicalize().unwrap_or_else(|_| c.clone());
+        }
+    }
+    PathBuf::from("datasets")
 }
 
 fn resolve_dist_dir(custom_path: Option<String>) -> Result<PathBuf> {
@@ -316,7 +643,6 @@ fn scan_runs_meta(results_dir: &Path) -> Vec<RunMeta> {
 }
 
 fn format_timestamp_from_filename(filename: &str) -> String {
-    // eval_results_YYYYMMDD_HHMMSS.json
     let parts: Vec<&str> = filename.trim_end_matches(".json").split('_').collect();
     if parts.len() >= 4 {
         let date = parts[2];

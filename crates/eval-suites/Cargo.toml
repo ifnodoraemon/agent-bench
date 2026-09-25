@@ -17,3 +17,4 @@ thiserror.workspace = true
 tracing.workspace = true
 indicatif.workspace = true
 futures-util.workspace = true
+rand.workspace = true

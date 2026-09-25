@@ -206,6 +206,15 @@
             <span class="tab-icon">💡</span>
             <span class="tab-title">自诊断与洞见</span>
           </button>
+
+          <button
+            class="tab-btn highlight-tab"
+            :class="{ active: currentTab === 'live' }"
+            @click="currentTab = 'live'"
+          >
+            <span class="tab-icon">🚀</span>
+            <span class="tab-title">实时评测控制台</span>
+          </button>
         </div>
 
         <!-- Tab Views -->
@@ -251,6 +260,11 @@
           <div v-show="currentTab === 'diagnostics'">
             <DiagnosticInsights :models="enrichedModels" />
           </div>
+
+          <!-- 8. Live Benchmark Runner -->
+          <div v-show="currentTab === 'live'">
+            <LiveBenchmarkRunner @load-run="handleLoadNewRun" />
+          </div>
         </div>
       </div>
     </main>
@@ -278,6 +292,7 @@ import ParetoAnalysis from './components/ParetoAnalysis.vue';
 import CaseInspector from './components/CaseInspector.vue';
 import ModelComparison from './components/ModelComparison.vue';
 import DiagnosticInsights from './components/DiagnosticInsights.vue';
+import LiveBenchmarkRunner from './components/LiveBenchmarkRunner.vue';
 import { computeHeadToHeadElo } from './utils/elo';
 import { enrichModelSummary } from './utils/benchmark';
 
@@ -469,6 +484,13 @@ async function handleRunFileChange() {
   } finally {
     isLoading.value = false;
   }
+}
+
+async function handleLoadNewRun(filename) {
+  await fetchAvailableRuns();
+  selectedRunFile.value = filename;
+  await handleRunFileChange();
+  currentTab.value = 'leaderboard';
 }
 
 onMounted(() => {
@@ -868,6 +890,15 @@ onMounted(() => {
   background: var(--primary);
   color: #ffffff;
   box-shadow: 0 4px 12px var(--primary-glow);
+}
+
+.tab-btn.highlight-tab {
+  border: 1px solid rgba(99, 102, 241, 0.4);
+  background: rgba(99, 102, 241, 0.08);
+}
+.tab-btn.highlight-tab.active {
+  background: var(--primary);
+  border-color: transparent;
 }
 
 .tab-icon {

@@ -97,6 +97,7 @@ impl BenchmarkOrchestrator {
                         cost_usd: 0.0,
                         model_output: String::new(),
                         reasoning_content: None,
+                        trajectory_steps: None,
                         error: Some(err.to_string()),
                     },
                     Err(_) => CaseResult {
@@ -116,6 +117,7 @@ impl BenchmarkOrchestrator {
                         cost_usd: 0.0,
                         model_output: String::new(),
                         reasoning_content: None,
+                        trajectory_steps: None,
                         error: Some(format!("Timeout after {timeout_secs}s")),
                     },
                 };
@@ -149,6 +151,7 @@ impl BenchmarkOrchestrator {
                         cost_usd: 0.0,
                         model_output: String::new(),
                         reasoning_content: None,
+                        trajectory_steps: None,
                         error: Some(join_err.to_string()),
                     });
                 }
@@ -297,6 +300,10 @@ impl BenchmarkOrchestrator {
             let (extracted_reasoning, clean_output) =
                 eval_core::model::extractor::ToolCallExtractor::extract_reasoning_and_clean_text(&raw_output);
 
+            let steps_json = serde_json::to_value(&trajectory.steps)
+                .ok()
+                .and_then(|v| v.as_array().cloned());
+
             return Ok(CaseResult {
                 test_case_id: test_case.id,
                 test_case_name: test_case.name,
@@ -314,23 +321,59 @@ impl BenchmarkOrchestrator {
                 cost_usd: trajectory.estimated_cost_usd,
                 model_output: clean_output,
                 reasoning_content: extracted_reasoning,
+                trajectory_steps: steps_json,
                 error: None,
             });
         }
 
-        // Standard single-turn evaluation
+        // Standard single-turn evaluation with adaptive rate-limit retry & jitter
         let mut messages = Vec::new();
         if let Some(ref sys) = test_case.system_prompt {
             messages.push(ChatMessage::system(sys));
         }
         messages.push(ChatMessage::user(&test_case.prompt));
 
-        let model_resp = match client
-            .chat_complete(&messages, test_case.tools.as_deref())
-            .await
-        {
-            Ok(resp) => resp,
-            Err(e) => {
+        let mut attempts = 0;
+        let max_attempts = 3;
+        let mut model_resp_opt = None;
+        let mut final_error = None;
+
+        while attempts < max_attempts {
+            attempts += 1;
+            match client.chat_complete(&messages, test_case.tools.as_deref()).await {
+                Ok(resp) => {
+                    model_resp_opt = Some(resp);
+                    break;
+                }
+                Err(e) => {
+                    let err_str = e.to_string().to_lowercase();
+                    let is_transient = err_str.contains("429")
+                        || err_str.contains("rate limit")
+                        || err_str.contains("too many requests")
+                        || err_str.contains("503")
+                        || err_str.contains("timeout")
+                        || err_str.contains("timed out")
+                        || err_str.contains("temporarily unavailable");
+
+                    if is_transient && attempts < max_attempts {
+                        let backoff_ms = (600 * (1 << attempts)) + (rand::random::<u64>() % 300);
+                        tracing::warn!(
+                            "Transient/Rate-limit error on case '{}': {}. Backing off {}ms (attempt {}/{})",
+                            test_case.id, e, backoff_ms, attempts, max_attempts
+                        );
+                        tokio::time::sleep(std::time::Duration::from_millis(backoff_ms)).await;
+                        continue;
+                    }
+                    final_error = Some(e);
+                    break;
+                }
+            }
+        }
+
+        let model_resp = match model_resp_opt {
+            Some(resp) => resp,
+            None => {
+                let err_msg = final_error.map(|e| e.to_string()).unwrap_or_else(|| "Unknown invocation error".to_string());
                 return Ok(CaseResult {
                     test_case_id: test_case.id,
                     test_case_name: test_case.name,
@@ -339,7 +382,7 @@ impl BenchmarkOrchestrator {
                     passed: false,
                     score: 0.0,
                     dimensions: None,
-                    reason: format!("Model invocation error: {e}"),
+                    reason: format!("Model invocation error: {err_msg}"),
                     latency_ms: start_time.elapsed().as_millis() as u64,
                     ttft_ms: None,
                     tps: 0.0,
@@ -348,7 +391,8 @@ impl BenchmarkOrchestrator {
                     cost_usd: 0.0,
                     model_output: String::new(),
                     reasoning_content: None,
-                    error: Some(e.to_string()),
+                    trajectory_steps: None,
+                    error: Some(err_msg),
                 });
             }
         };
@@ -434,6 +478,7 @@ impl BenchmarkOrchestrator {
             cost_usd: model_resp.estimated_cost_usd,
             model_output: model_resp.text,
             reasoning_content: model_resp.reasoning_content,
+            trajectory_steps: None,
             error: None,
         })
     }

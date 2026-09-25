@@ -181,6 +181,47 @@
 
         <!-- Expanded Details Area -->
         <div v-if="isExpanded(c.test_case_id)" class="case-expanded-body">
+          <!-- Multi-Turn Step-by-Step Trajectory Timeline (if present) -->
+          <div v-if="c.trajectory_steps && c.trajectory_steps.length > 0" class="detail-section trajectory-section">
+            <div class="section-title trajectory-title">
+              <span class="icon">🔄</span>
+              <strong>多轮智能体交互与工具调用时间线 (Multi-Turn ReAct Timeline)</strong>
+              <span class="token-hint">共 {{ c.trajectory_steps.length }} 轮次交互</span>
+            </div>
+            <div class="trajectory-timeline">
+              <div
+                v-for="step in c.trajectory_steps"
+                :key="step.turn"
+                class="timeline-step-item"
+              >
+                <div class="step-badge-col">
+                  <span class="step-num-badge">第 {{ step.turn }} 轮</span>
+                  <span class="step-lat-badge">{{ step.latency_ms }}ms</span>
+                </div>
+                <div class="step-content-card">
+                  <div v-if="step.model_thought" class="step-thought-text">
+                    <span class="thought-tag">💭 模型思考:</span> {{ step.model_thought }}
+                  </div>
+                  <div v-if="step.tool_calls && step.tool_calls.length > 0" class="step-tools-box">
+                    <div v-for="(tc, tcIdx) in step.tool_calls" :key="tcIdx" class="tool-call-row">
+                      <span class="tool-name-badge">🛠️ {{ tc.function?.name || tc.name || 'tool' }}</span>
+                      <code class="tool-args-code">{{ typeof tc.function?.arguments === 'string' ? tc.function.arguments : JSON.stringify(tc.function?.arguments || tc.arguments || {}) }}</code>
+                    </div>
+                  </div>
+                  <div v-if="step.tool_results && step.tool_results.length > 0" class="step-results-box">
+                    <div v-for="(res, resIdx) in step.tool_results" :key="resIdx" class="tool-result-row">
+                      <span class="result-lbl">📤 环境变量/执行反馈:</span>
+                      <pre class="tool-result-pre">{{ res[1] || res }}</pre>
+                    </div>
+                  </div>
+                  <div v-if="step.error" class="step-error-box">
+                    ⚠️ {{ step.error }}
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
           <!-- Deep Thinking Trace Section (if present) -->
           <div v-if="getThinking(c).thinking" class="detail-section thinking-section">
             <div class="section-title thinking-title">
@@ -852,5 +893,145 @@ function exportCurrentBadcases() {
   font-weight: 700;
   color: var(--text-heading);
   padding: 0 0.5rem;
+}
+
+/* Trajectory Timeline Styles */
+.trajectory-section {
+  background: var(--bg-card);
+  border: 1px solid rgba(99, 102, 241, 0.25);
+  border-radius: 8px;
+  padding: 0.85rem;
+}
+
+.trajectory-title {
+  color: #818cf8;
+}
+
+.trajectory-timeline {
+  display: flex;
+  flex-direction: column;
+  gap: 0.85rem;
+  margin-top: 0.5rem;
+}
+
+.timeline-step-item {
+  display: flex;
+  gap: 0.85rem;
+  position: relative;
+}
+
+.step-badge-col {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.25rem;
+  min-width: 68px;
+}
+
+.step-num-badge {
+  background: #6366f1;
+  color: #ffffff;
+  font-size: 0.72rem;
+  font-weight: 700;
+  padding: 0.2rem 0.45rem;
+  border-radius: 4px;
+}
+
+.step-lat-badge {
+  font-size: 0.68rem;
+  color: var(--text-faint);
+  font-family: var(--font-mono);
+}
+
+.step-content-card {
+  flex: 1;
+  background: var(--bg-surface);
+  border: 1px solid var(--border-soft);
+  border-radius: 6px;
+  padding: 0.65rem 0.85rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+}
+
+.step-thought-text {
+  font-size: 0.8rem;
+  color: #e2e8f0;
+  line-height: 1.45;
+}
+
+.thought-tag {
+  color: #c084fc;
+  font-weight: 700;
+}
+
+.step-tools-box {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.tool-call-row {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  background: var(--bg-card);
+  padding: 0.3rem 0.55rem;
+  border-radius: 4px;
+  border: 1px solid var(--border-soft);
+  font-size: 0.78rem;
+}
+
+.tool-name-badge {
+  color: #38bdf8;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.tool-args-code {
+  font-family: var(--font-mono);
+  color: #a5f3fc;
+  font-size: 0.72rem;
+  overflow-x: auto;
+}
+
+.step-results-box {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+}
+
+.tool-result-row {
+  background: rgba(15, 23, 42, 0.8);
+  border: 1px solid var(--border-soft);
+  border-radius: 4px;
+  padding: 0.4rem 0.6rem;
+}
+
+.result-lbl {
+  display: block;
+  font-size: 0.7rem;
+  color: #94a3b8;
+  font-weight: 600;
+  margin-bottom: 0.15rem;
+}
+
+.tool-result-pre {
+  font-family: var(--font-mono);
+  font-size: 0.72rem;
+  color: #94a3b8;
+  white-space: pre-wrap;
+  word-break: break-all;
+  max-height: 120px;
+  overflow-y: auto;
+}
+
+.step-error-box {
+  background: rgba(239, 68, 68, 0.15);
+  border: 1px solid rgba(239, 68, 68, 0.3);
+  color: #f87171;
+  padding: 0.35rem 0.6rem;
+  border-radius: 4px;
+  font-size: 0.75rem;
 }
 </style>

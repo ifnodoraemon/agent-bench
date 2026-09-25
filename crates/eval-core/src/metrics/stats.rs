@@ -33,6 +33,8 @@ pub struct CaseResult {
     pub model_output: String,
     #[serde(default)]
     pub reasoning_content: Option<String>,
+    #[serde(default)]
+    pub trajectory_steps: Option<Vec<serde_json::Value>>,
     pub error: Option<String>,
 }
 
