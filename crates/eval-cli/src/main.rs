@@ -138,6 +138,10 @@ enum Commands {
         /// Output verification report as raw JSON (useful for CI/CD gates)
         #[arg(long = "json", default_value_t = false)]
         json: bool,
+
+        /// Run autonomous LLM-driven adversarial audit with dynamic probes and cross-examination
+        #[arg(long = "agentic", default_value_t = false)]
+        agentic: bool,
     },
 }
 
@@ -204,9 +208,10 @@ async fn main() -> Result<()> {
             api_key,
             protocol,
             json,
+            agentic,
         } => {
             commands::verify::execute_verify(
-                model, target, config, base_url, api_key, protocol, json,
+                model, target, config, base_url, api_key, protocol, json, agentic,
             )
             .await?;
         }

@@ -40,6 +40,27 @@
       </div>
     </div>
 
+    <!-- Official Ground Truth Baseline Anchor Banner -->
+    <div v-if="activeOfficialBaseline" class="official-baseline-banner">
+      <div class="ob-left">
+        <div class="ob-tag">🏛️ 原厂官方公布基准锚点 (Official Technical Report Baseline)</div>
+        <div class="ob-title">{{ activeOfficialBaseline.display_name }} · {{ activeOfficialBaseline.vendor }}</div>
+      </div>
+      <div class="ob-scores">
+        <div
+          v-for="s in activeOfficialBaseline.scores.slice(0, 5)"
+          :key="s.benchmark_id"
+          class="ob-score-pill"
+        >
+          <span class="ob-sc-name">{{ s.benchmark_name }}</span>
+          <span class="ob-sc-val">{{ s.score.toFixed(1) }} {{ s.unit }}</span>
+        </div>
+      </div>
+      <a :href="activeOfficialBaseline.tech_report_url" target="_blank" class="ob-paper-link">
+        官方报告 ↗
+      </a>
+    </div>
+
     <!-- Channel Best-Pick Decision Ribbon -->
     <div v-if="activeGroup && activeGroup.channels.length > 1" class="decision-ribbon-grid">
       <div class="decision-card best-speed">
@@ -207,7 +228,7 @@
 
 <script setup>
 import { ref, computed } from 'vue';
-import { CATEGORY_NAMES, resolveDifficulty } from '../utils/benchmark';
+import { CATEGORY_NAMES, resolveDifficulty, resolveOfficialBaseline } from '../utils/benchmark';
 
 const props = defineProps({
   models: {
@@ -300,6 +321,11 @@ const activeGroup = computed(() => {
     return canonicalGroups.value[0];
   }
   return canonicalGroups.value.find(g => g.canonical_name === selectedCanonical.value) || canonicalGroups.value[0];
+});
+
+const activeOfficialBaseline = computed(() => {
+  if (!activeGroup.value) return null;
+  return resolveOfficialBaseline(activeGroup.value.canonical_name);
 });
 
 const totalChannelEndpoints = computed(() => enrichedChannels.value.length);
@@ -765,5 +791,80 @@ const discrepancyCases = computed(() => {
   text-align: center;
   background: var(--bg-surface);
   border-top: 1px solid var(--border-soft);
+}
+
+/* Official Baseline Anchor Banner */
+.official-baseline-banner {
+  background: linear-gradient(135deg, rgba(234, 179, 8, 0.08) 0%, rgba(15, 23, 42, 0.85) 60%);
+  border: 1px solid rgba(234, 179, 8, 0.35);
+  border-radius: 12px;
+  padding: 0.9rem 1.25rem;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 1rem;
+}
+
+.ob-left {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+}
+
+.ob-tag {
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: #fbbf24;
+  letter-spacing: 0.5px;
+}
+
+.ob-title {
+  font-size: 1rem;
+  font-weight: 700;
+  color: var(--text-heading);
+}
+
+.ob-scores {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.ob-score-pill {
+  background: rgba(15, 23, 42, 0.7);
+  border: 1px solid var(--border-soft);
+  padding: 4px 10px;
+  border-radius: 6px;
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 0.78rem;
+}
+
+.ob-sc-name {
+  color: var(--text-muted);
+}
+
+.ob-sc-val {
+  color: #38bdf8;
+  font-weight: 700;
+  font-family: monospace;
+}
+
+.ob-paper-link {
+  color: #38bdf8;
+  font-size: 0.82rem;
+  font-weight: 600;
+  text-decoration: none;
+  background: rgba(56, 189, 248, 0.1);
+  border: 1px solid rgba(56, 189, 248, 0.3);
+  padding: 4px 10px;
+  border-radius: 6px;
+  transition: all 0.15s;
+}
+
+.ob-paper-link:hover {
+  background: rgba(56, 189, 248, 0.2);
 }
 </style>

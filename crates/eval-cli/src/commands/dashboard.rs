@@ -2,7 +2,8 @@ use anyhow::{Context, Result};
 use chrono::Local;
 use eval_core::dataset::{Category, Dataset, DatasetLoader};
 use eval_core::model::{create_client, ApiProtocol, ModelConfig};
-use eval_core::verifier::{ModelVerifier, STANDARD_PROBES};
+use eval_agent::VerificationAgent;
+use eval_core::verifier::{get_all_baselines, ModelVerifier, STANDARD_PROBES};
 use eval_suites::BenchmarkOrchestrator;
 use serde::{Deserialize, Serialize};
 use std::path::{Path, PathBuf};
@@ -361,6 +362,21 @@ pub async fn execute(
                 return;
             }
 
+            // 7b. API: /api/baselines (GET) - Official Ground Truth baselines
+            if req_path == "/api/baselines" && is_get {
+                let baselines = get_all_baselines();
+                let bytes = serde_json::to_vec(&baselines).unwrap_or_else(|_| b"[]".to_vec());
+                let header = format!(
+                    "HTTP/1.1 200 OK\r\nContent-Type: application/json; charset=utf-8\r\nContent-Length: {}\r\nConnection: close\r\nAccess-Control-Allow-Origin: *\r\n\r\n",
+                    bytes.len()
+                );
+                let _ = socket.write_all(header.as_bytes()).await;
+                if !is_head {
+                    let _ = socket.write_all(&bytes).await;
+                }
+                return;
+            }
+
             // 8. API: /api/verify (POST)
             if req_path == "/api/verify" && is_post {
                 let mut req_body = VerifyApiRequest {
@@ -408,6 +424,74 @@ pub async fn execute(
                         Err(e) => {
                             let err_json = serde_json::json!({
                                 "error": format!("验真探测失败: {}", e)
+                            });
+                            serde_json::to_vec(&err_json).unwrap()
+                        }
+                    },
+                    Err(e) => {
+                        let err_json = serde_json::json!({
+                            "error": format!("创建模型客户端失败: {}", e)
+                        });
+                        serde_json::to_vec(&err_json).unwrap()
+                    }
+                };
+
+                let header = format!(
+                    "HTTP/1.1 200 OK\r\nContent-Type: application/json; charset=utf-8\r\nContent-Length: {}\r\nConnection: close\r\nAccess-Control-Allow-Origin: *\r\n\r\n",
+                    resp_bytes.len()
+                );
+                let _ = socket.write_all(header.as_bytes()).await;
+                let _ = socket.write_all(&resp_bytes).await;
+                return;
+            }
+
+            // 8b. API: /api/verify/agentic (POST) - Autonomous LLM-driven adversarial audit
+            if req_path == "/api/verify/agentic" && is_post {
+                let mut req_body = VerifyApiRequest {
+                    model: Some("mock-pro".to_string()),
+                    target: Some("DeepSeek-R1".to_string()),
+                    base_url: None,
+                    api_key: None,
+                    protocol: None,
+                };
+
+                if let Some(pos) = req_str.find("\r\n\r\n") {
+                    let body_str = &req_str[pos + 4..];
+                    if let Ok(parsed) = serde_json::from_str::<VerifyApiRequest>(body_str) {
+                        req_body = parsed;
+                    }
+                }
+
+                let model_name = req_body.model.unwrap_or_else(|| "mock-pro".to_string());
+                let target_name = req_body.target.unwrap_or_else(|| "DeepSeek-R1".to_string());
+
+                let proto = if let Some(ref p_str) = req_body.protocol {
+                    std::str::FromStr::from_str(p_str).unwrap_or(ApiProtocol::OpenAiChat)
+                } else if model_name.starts_with("mock") {
+                    ApiProtocol::Mock
+                } else if model_name.contains("claude") {
+                    ApiProtocol::Anthropic
+                } else if model_name.contains("gemini") {
+                    ApiProtocol::Gemini
+                } else {
+                    ApiProtocol::OpenAiChat
+                };
+
+                let mut cfg = ModelConfig::new(&model_name, proto.to_string(), &model_name);
+                cfg.protocol = proto;
+                if let Some(url) = req_body.base_url {
+                    cfg.base_url = Some(url);
+                }
+                if let Some(key) = req_body.api_key {
+                    cfg.api_key = Some(key);
+                }
+
+                let resp_bytes = match create_client(cfg) {
+                    Ok(client) => match VerificationAgent::audit(&*client, None, Some(&target_name)).await {
+                        Ok(audit_report) => serde_json::to_vec(&audit_report).unwrap_or_default(),
+                        Err(e) => {
+                            let err_json = serde_json::json!({
+                                "error": format!("AI 智能验真 Agent 对抗审计失败: {}", e)
                             });
                             serde_json::to_vec(&err_json).unwrap()
                         }

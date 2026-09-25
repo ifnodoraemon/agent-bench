@@ -19,5 +19,8 @@ pub use model::{
 };
 pub use prompts::{PromptCatalog, PromptTemplate};
 pub use verifier::{
-    ModelVerifier, ProbeCategory, ProbeDefinition, ProbeResult, VerificationReport, STANDARD_PROBES,
+    evaluate_baseline_drift, get_all_baselines, get_official_baseline, resolve_canonical_id,
+    BaselineDriftReport, BenchmarkMetric, DriftMetricComparison, DriftStatus, ModelVerifier,
+    OfficialModelBaseline, ProbeCategory, ProbeDefinition, ProbeResult, VerificationReport,
+    OFFICIAL_BASELINES, STANDARD_PROBES,
 };
