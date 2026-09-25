@@ -32,6 +32,7 @@ fn make_test_case(id: &str, eval_type: EvaluationType) -> TestCase {
         id: id.to_string(),
         name: None,
         category: Category::Foundation,
+        difficulty: None,
         tags: vec![],
         prompt: "test prompt".to_string(),
         system_prompt: None,

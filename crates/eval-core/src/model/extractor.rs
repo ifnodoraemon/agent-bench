@@ -206,6 +206,60 @@ impl ToolCallExtractor {
             None
         }
     }
+
+    /// Extract reasoning content from text (e.g. <think>...</think> or <thought>...</thought>),
+    /// returning (extracted_reasoning, clean_text_without_thinking)
+    pub fn extract_reasoning_and_clean_text(text: &str) -> (Option<String>, String) {
+        let mut clean = text.to_string();
+        let mut reasoning = Vec::new();
+
+        // 1. Match closed tags <think>...</think> and <thought>...</thought>
+        if let Ok(think_re) = Regex::new(r"(?s)<think>(.*?)</think>") {
+            for cap in think_re.captures_iter(text) {
+                if let Some(m) = cap.get(1) {
+                    let content = m.as_str().trim();
+                    if !content.is_empty() {
+                        reasoning.push(content.to_string());
+                    }
+                }
+            }
+            clean = think_re.replace_all(&clean, "").to_string();
+        }
+
+        if let Ok(thought_re) = Regex::new(r"(?s)<thought>(.*?)</thought>") {
+            for cap in thought_re.captures_iter(&clean) {
+                if let Some(m) = cap.get(1) {
+                    let content = m.as_str().trim();
+                    if !content.is_empty() {
+                        reasoning.push(content.to_string());
+                    }
+                }
+            }
+            clean = thought_re.replace_all(&clean, "").to_string();
+        }
+
+        // 2. Handle unclosed <think>... or <thought>... if generation ended during thinking
+        if let Ok(unclosed_re) = Regex::new(r"(?s)<(?:think|thought)>(.*)$") {
+            if let Some(cap) = unclosed_re.captures(&clean) {
+                if let Some(m) = cap.get(1) {
+                    let content = m.as_str().trim();
+                    if !content.is_empty() {
+                        reasoning.push(content.to_string());
+                    }
+                }
+                clean = unclosed_re.replace(&clean, "").to_string();
+            }
+        }
+
+        let clean_trimmed = clean.trim().to_string();
+        let final_reasoning = if !reasoning.is_empty() {
+            Some(reasoning.join("\n\n"))
+        } else {
+            None
+        };
+
+        (final_reasoning, clean_trimmed)
+    }
 }
 
 #[cfg(test)]
@@ -257,5 +311,19 @@ def load_config(): pass</arg_value></tool_call>"#;
         assert_eq!(calls.len(), 1);
         assert_eq!(calls[0].function.name, "bash");
         assert!(calls[0].function.arguments.contains("cargo test"));
+    }
+
+    #[test]
+    fn test_extract_reasoning_and_clean_text() {
+        let text = "<think>\nStep 1: Calculate 2 + 2 = 4\nStep 2: Format answer\n</think>\n\n\\boxed{4}";
+        let (reasoning, clean) = ToolCallExtractor::extract_reasoning_and_clean_text(text);
+        assert_eq!(reasoning, Some("Step 1: Calculate 2 + 2 = 4\nStep 2: Format answer".to_string()));
+        assert_eq!(clean, "\\boxed{4}");
+
+        // Unclosed tag case
+        let unclosed = "<think>I am currently thinking about the Riemann hypothesis";
+        let (r2, c2) = ToolCallExtractor::extract_reasoning_and_clean_text(unclosed);
+        assert_eq!(r2, Some("I am currently thinking about the Riemann hypothesis".to_string()));
+        assert_eq!(c2, "");
     }
 }

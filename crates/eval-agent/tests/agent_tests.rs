@@ -57,6 +57,7 @@ fn test_trajectory_evaluator_5_dimensional_scoring() {
         id: "test_01".to_string(),
         name: None,
         category: Category::Agent,
+        difficulty: None,
         tags: vec![],
         prompt: "Please check the port".to_string(),
         system_prompt: None,
@@ -100,6 +101,7 @@ async fn test_trajectory_evaluator_with_llm_judge() {
         id: "test_judge_01".to_string(),
         name: None,
         category: Category::Agent,
+        difficulty: None,
         tags: vec![],
         prompt: "Please check the port in config".to_string(),
         system_prompt: None,
@@ -130,5 +132,26 @@ async fn test_trajectory_evaluator_with_llm_judge() {
     assert!(eval_res.passed);
     assert_eq!(eval_res.score, 0.93);
     assert!(eval_res.reason.contains("Agent LLM-Judge"));
+}
+
+#[test]
+fn test_workspace_git_and_file_inspection() {
+    use eval_agent::WorkspaceEnv;
+
+    let env = WorkspaceEnv::new().unwrap();
+    let files = env.list_files(None).unwrap();
+    assert!(files.contains(&"app/config.yaml".to_string()));
+
+    // Initialize git
+    env.git_init_repo().unwrap();
+
+    // Modify a file
+    let path = env.workspace_path().join("app/config.yaml");
+    std::fs::write(&path, "server:\n  port: 9090\n").unwrap();
+
+    // Check git diff
+    let diff = env.git_diff().unwrap();
+    assert!(diff.contains("-  port: 8080"));
+    assert!(diff.contains("+  port: 9090"));
 }
 

@@ -31,13 +31,41 @@ enum Commands {
         #[arg(short, long, num_args = 1..)]
         dataset: Option<Vec<String>>,
 
-        /// Filter test cases by category (foundation, agent, safety)
+        /// Filter test cases by category (foundation, agent, safety, etc.)
         #[arg(long)]
         category: Option<String>,
+
+        /// Filter test cases by difficulty (L1, L2, L3, L4, L5, or comma-separated e.g. L4,L5)
+        #[arg(short = 'D', long = "difficulty")]
+        difficulty: Option<String>,
+
+        /// Filter only extreme/frontier test cases (L4 & L5 Olympiad, PhD, SWE-Hard)
+        #[arg(long = "frontier", default_value_t = false)]
+        frontier: bool,
+
+        /// Filter test cases by evaluation type (exact_match, regex, json_schema, code_execution, llm_judge, agent_trajectory)
+        #[arg(long = "eval-type")]
+        eval_type: Option<String>,
 
         /// Filter test cases by tag
         #[arg(long)]
         tag: Option<String>,
+
+        /// Limit the maximum number of test cases to run
+        #[arg(short = 'l', long = "limit")]
+        limit: Option<usize>,
+
+        /// Randomly sample a ratio of test cases (0.0 to 1.0)
+        #[arg(long = "sample-ratio")]
+        sample_ratio: Option<f64>,
+
+        /// Random seed for deterministic test case sampling
+        #[arg(long = "seed")]
+        seed: Option<u64>,
+
+        /// Resume and only run test cases that failed or errored in a previous results JSON
+        #[arg(long = "resume-failed")]
+        resume_failed: Option<String>,
 
         /// Override models to run (comma-separated or multiple flags)
         #[arg(short = 'm', long = "models", num_args = 1..)]
@@ -79,7 +107,14 @@ async fn main() -> Result<()> {
             config,
             dataset,
             category,
+            difficulty,
+            frontier,
+            eval_type,
             tag,
+            limit,
+            sample_ratio,
+            seed,
+            resume_failed,
             models,
             concurrency,
             output_dir,
@@ -88,7 +123,14 @@ async fn main() -> Result<()> {
                 config,
                 dataset.unwrap_or_default(),
                 category,
+                difficulty,
+                frontier,
+                eval_type,
                 tag,
+                limit,
+                sample_ratio,
+                seed,
+                resume_failed,
                 models,
                 concurrency,
                 output_dir,

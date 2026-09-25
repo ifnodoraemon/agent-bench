@@ -10,12 +10,39 @@ pub fn execute_compare(result_files: Vec<String>) -> Result<()> {
         return Ok(());
     }
 
-    let mut all_summaries = Vec::new();
-
+    let mut resolved_paths = Vec::new();
     for path_str in &result_files {
         let path = Path::new(path_str);
-        let content = fs::read_to_string(path)
-            .with_context(|| format!("Failed to read result file: {}", path.display()))?;
+        if path.is_dir() {
+            if let Ok(entries) = fs::read_dir(path) {
+                for entry in entries.flatten() {
+                    let p = entry.path();
+                    if p.extension().and_then(|s| s.to_str()) == Some("json") {
+                        resolved_paths.push(p);
+                    }
+                }
+            }
+        } else if path.exists() {
+            resolved_paths.push(path.to_path_buf());
+        }
+    }
+
+    if resolved_paths.is_empty() {
+        println!("⚠️ No .json result files discovered in specified paths.");
+        return Ok(());
+    }
+
+    resolved_paths.sort();
+    let mut all_summaries = Vec::new();
+
+    for path in &resolved_paths {
+        let content = match fs::read_to_string(path) {
+            Ok(c) => c,
+            Err(e) => {
+                println!("⚠️ Failed to read {}: {e}", path.display());
+                continue;
+            }
+        };
 
         if let Ok(list) = serde_json::from_str::<Vec<ModelBenchmarkSummary>>(&content) {
             all_summaries.extend(list);
@@ -31,22 +58,29 @@ pub fn execute_compare(result_files: Vec<String>) -> Result<()> {
         return Ok(());
     }
 
+    // Deduplicate by model_id to keep latest benchmark run per model
+    let mut model_map = std::collections::BTreeMap::new();
+    for s in all_summaries {
+        model_map.insert(s.model_id.clone(), s);
+    }
+    let unique_summaries: Vec<ModelBenchmarkSummary> = model_map.into_values().collect();
+
     // Render leaderboard table
-    let table = TerminalReporter::render_summary(&all_summaries);
+    let table = TerminalReporter::render_summary(&unique_summaries);
     println!("{table}");
 
     // Compute pairwise battle Elo if multiple models exist
-    if all_summaries.len() >= 2 {
+    if unique_summaries.len() >= 2 {
         println!("⚔️ === PAIRWISE ELO RATINGS ===");
         let elo_calc = EloCalculator::default();
-        let model_names: Vec<String> = all_summaries.iter().map(|s| s.model_name.clone()).collect();
+        let model_names: Vec<String> = unique_summaries.iter().map(|s| s.model_name.clone()).collect();
         let mut battles = Vec::new();
 
         // Compare score across identical test cases
-        for i in 0..all_summaries.len() {
-            for j in (i + 1)..all_summaries.len() {
-                let m_a = &all_summaries[i];
-                let m_b = &all_summaries[j];
+        for i in 0..unique_summaries.len() {
+            for j in (i + 1)..unique_summaries.len() {
+                let m_a = &unique_summaries[i];
+                let m_b = &unique_summaries[j];
 
                 for case_a in &m_a.case_results {
                     if let Some(case_b) = m_b.case_results.iter().find(|c| c.test_case_id == case_a.test_case_id) {
@@ -74,7 +108,7 @@ pub fn execute_compare(result_files: Vec<String>) -> Result<()> {
     }
 
     // Export modern light dashboard
-    let html_content = eval_core::reporter::HtmlReporter::generate_html(&all_summaries);
+    let html_content = eval_core::reporter::HtmlReporter::generate_html(&unique_summaries);
     let out_dir = Path::new("./results");
     if !out_dir.exists() {
         let _ = fs::create_dir_all(out_dir);

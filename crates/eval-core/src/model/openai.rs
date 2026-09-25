@@ -1,4 +1,5 @@
 use super::client::ModelClient;
+use super::extractor::ToolCallExtractor;
 use super::types::{
     extract_fallback_tool_calls, ChatMessage, FunctionCall, ModelConfig, ModelResponse, TokenUsage,
     ToolCall, ToolDefinition,
@@ -379,6 +380,20 @@ impl OpenAICompatibleClient {
 
         let estimated_cost = self.calculate_cost(prompt_tokens, completion_tokens);
 
+        // Deep reasoning & thinking tags extraction (<think>...</think>)
+        if reasoning_text.is_empty() {
+            let (extracted_reasoning, cleaned_text) = ToolCallExtractor::extract_reasoning_and_clean_text(&full_text);
+            if let Some(r) = extracted_reasoning {
+                reasoning_text = r;
+                full_text = cleaned_text;
+            }
+        } else {
+            let (_, cleaned_text) = ToolCallExtractor::extract_reasoning_and_clean_text(&full_text);
+            if !cleaned_text.trim().is_empty() {
+                full_text = cleaned_text;
+            }
+        }
+
         if full_text.trim().is_empty() && !reasoning_text.trim().is_empty() {
             full_text = reasoning_text.clone();
         }
@@ -433,11 +448,20 @@ impl OpenAICompatibleClient {
 
         let message = choice.get("message").ok_or_else(|| anyhow::anyhow!("No message object in choice"))?;
         let mut text = message.get("content").and_then(|c| c.as_str()).unwrap_or("").to_string();
-        let reasoning_content = message
+        let mut reasoning_content = message
             .get("reasoning_content")
             .or_else(|| message.get("reasoning"))
             .and_then(|r| r.as_str())
             .map(|s| s.to_string());
+
+        // Extract <think>...</think> if reasoning was not explicitly separated
+        let (extracted_reasoning, cleaned_text) = ToolCallExtractor::extract_reasoning_and_clean_text(&text);
+        if reasoning_content.is_none() && extracted_reasoning.is_some() {
+            reasoning_content = extracted_reasoning;
+            text = cleaned_text;
+        } else if !cleaned_text.trim().is_empty() {
+            text = cleaned_text;
+        }
 
         if text.trim().is_empty() {
             if let Some(ref r) = reasoning_content {

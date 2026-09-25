@@ -50,13 +50,26 @@ cargo run --bin agent-bench -- run --config eval_config.toml
 # 过滤特定类别 (如仅评测 agent 智能体能力)
 cargo run --bin agent-bench -- run --category agent --concurrency 5
 
+# 仅评测 L4/L5 极限难题 (Frontier Challenges: Olympiad, PhD, SWE-Hard)
+cargo run --bin agent-bench -- run --frontier --limit 20
+
+# 仅评测指定评测类型 (如 agent_trajectory 或 exact_match)
+cargo run --bin agent-bench -- run --eval-type agent_trajectory
+
+# 断点续评 / 仅重跑上次失败或报错的用例
+cargo run --bin agent-bench -- run --resume-failed results/eval_results_20260926_004057.json
+
+# 随机抽样 20% 测试集快速验证
+cargo run --bin agent-bench -- run --sample-ratio 0.2 --seed 42
+
 # 指定评测特定模型
 cargo run --bin agent-bench -- run --models deepseek-chat,gpt-4o-mini
 ```
 
 ### 4. 历史结果对比与 Elo 排行榜
 ```bash
-cargo run --bin agent-bench -- compare results/eval_results_*.json
+# 直接对比 results 目录下的所有历史评测，自动去重并更新可视化看板
+cargo run --bin agent-bench -- compare results/
 ```
 
 ---

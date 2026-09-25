@@ -869,6 +869,7 @@ const HTML_TEMPLATE: &str = r##"<!DOCTYPE html>
                     <button class="filter-btn" data-filter="fail" style="color: var(--accent-rose);">仅看失败</button>
                     <button class="filter-btn" data-filter="l4_l5" style="color: #c084fc; font-weight: 700;">⚡ 仅看 L4/L5 难题</button>
                     <button class="filter-btn" data-filter="pass" style="color: var(--accent-emerald);">仅看成功</button>
+                    <button class="filter-btn" onclick="exportCasesToCsv()" style="color: var(--accent-sky); font-weight: 600;">📥 导出 CSV</button>
                 </div>
             </div>
 
@@ -1224,6 +1225,28 @@ __SUMMARIES_JSON__
                     dimHtml += '</div>';
                 }
 
+                let reasoningSection = '';
+                if (c.reasoning_content && c.reasoning_content.trim().length > 0) {
+                    reasoningSection = `
+                        <div class="case-section">
+                            <div class="section-label" style="color: #818cf8; display: flex; align-items: center; gap: 0.35rem;">
+                                <span>🧠 深度思维推理链 (Reasoning & Thinking Process)</span>
+                            </div>
+                            <div class="code-box" style="border-left: 3px solid #818cf8; background: var(--bg-card); opacity: 0.95;">${escapeHtml(c.reasoning_content)}</div>
+                        </div>
+                    `;
+                }
+
+                let errorSection = '';
+                if (c.error && c.error.trim().length > 0) {
+                    errorSection = `
+                        <div class="case-section">
+                            <div class="section-label" style="color: var(--accent-rose);">⚠️ 异常错误详情 (Error Detail)</div>
+                            <div class="code-box" style="color: var(--accent-rose); border-left: 3px solid var(--accent-rose);">${escapeHtml(c.error)}</div>
+                        </div>
+                    `;
+                }
+
                 item.innerHTML = `
                     <div class="case-header" onclick="const b = this.nextElementSibling; b.style.display = b.style.display === 'none' ? 'block' : 'none';">
                         <div>
@@ -1244,6 +1267,8 @@ __SUMMARIES_JSON__
                             <div style="color: ${c.passed ? 'var(--accent-emerald)' : 'var(--accent-rose)'}; font-weight: 700;">${c.reason}</div>
                             ${dimHtml}
                         </div>
+                        ${errorSection}
+                        ${reasoningSection}
                         <div class="case-section">
                             <div class="section-label">模型实际输出 (Model Output)</div>
                             <div class="code-box">${c.model_output ? escapeHtml(c.model_output) : '<i style="color: var(--text-faint);">(无输出内容)</i>'}</div>
@@ -1261,6 +1286,32 @@ __SUMMARIES_JSON__
                 .replace(/>/g, "&gt;")
                 .replace(/"/g, "&quot;")
                 .replace(/'/g, "&#039;");
+        }
+
+        function exportCasesToCsv() {
+            if (!currentModel || !currentModel.case_results) return;
+            const rows = [["Test Case ID", "Category", "Difficulty", "Passed", "Score", "Latency (ms)", "Tokens Prompt", "Tokens Completion", "Reason"]];
+            currentModel.case_results.forEach(c => {
+                rows.push([
+                    `"${c.test_case_id}"`,
+                    `"${c.category}"`,
+                    `"${c.difficulty || ''}"`,
+                    c.passed ? "PASS" : "FAIL",
+                    c.score.toFixed(4),
+                    c.latency_ms,
+                    c.prompt_tokens,
+                    c.completion_tokens,
+                    `"${(c.reason || '').replace(/"/g, '""')}"`
+                ]);
+            });
+            const csvContent = "data:text/csv;charset=utf-8,\uFEFF" + rows.map(e => e.join(",")).join("\n");
+            const encodedUri = encodeURI(csvContent);
+            const link = document.createElement("a");
+            link.setAttribute("href", encodedUri);
+            link.setAttribute("download", `eval_${currentModel.model_id}_cases.csv`);
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
         }
 
         renderFilteredCases();

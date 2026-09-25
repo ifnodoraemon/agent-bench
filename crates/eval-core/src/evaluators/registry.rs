@@ -63,6 +63,7 @@ mod tests {
             id: "test_01".to_string(),
             name: None,
             category: Category::Foundation,
+            difficulty: None,
             tags: vec![],
             prompt: "What is 2+2?".to_string(),
             system_prompt: None,

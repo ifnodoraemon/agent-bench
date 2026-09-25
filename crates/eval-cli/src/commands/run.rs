@@ -32,7 +32,14 @@ pub async fn execute_run(
     config_path: Option<String>,
     dataset_paths: Vec<String>,
     filter_category: Option<String>,
+    filter_difficulty: Option<String>,
+    filter_frontier: bool,
+    filter_eval_type: Option<String>,
     filter_tag: Option<String>,
+    limit: Option<usize>,
+    sample_ratio: Option<f64>,
+    seed: Option<u64>,
+    resume_failed: Option<String>,
     models_override: Option<Vec<String>>,
     concurrency_override: Option<usize>,
     output_dir_override: Option<String>,
@@ -131,6 +138,52 @@ pub async fn execute_run(
     }
     if let Some(ref tag) = filter_tag {
         combined_dataset = combined_dataset.filter_by_tag(tag);
+    }
+    if filter_frontier {
+        combined_dataset = combined_dataset.filter_by_difficulty("frontier");
+    }
+    if let Some(ref diff) = filter_difficulty {
+        combined_dataset = combined_dataset.filter_by_difficulty(diff);
+    }
+    if let Some(ref et_str) = filter_eval_type {
+        if let Some(et) = eval_core::dataset::EvaluationType::from_str(et_str) {
+            combined_dataset = combined_dataset.filter_by_eval_type(&et);
+        } else {
+            eprintln!("⚠️ Unknown evaluation type: '{et_str}'. Valid types: exact_match, regex, json_schema, code_execution, llm_judge, agent_trajectory");
+        }
+    }
+    if let Some(ref resume_path) = resume_failed {
+        let path = Path::new(resume_path);
+        if path.exists() {
+            let content = fs::read_to_string(path)
+                .with_context(|| format!("Failed to read resume results file: {resume_path}"))?;
+            let mut failed_ids = std::collections::HashSet::new();
+            if let Ok(summaries) = serde_json::from_str::<Vec<ModelBenchmarkSummary>>(&content) {
+                for s in summaries {
+                    for c in s.case_results {
+                        if !c.passed || c.error.is_some() {
+                            failed_ids.insert(c.test_case_id);
+                        }
+                    }
+                }
+            } else if let Ok(single) = serde_json::from_str::<ModelBenchmarkSummary>(&content) {
+                for c in single.case_results {
+                    if !c.passed || c.error.is_some() {
+                        failed_ids.insert(c.test_case_id);
+                    }
+                }
+            }
+            println!("🔁 Resuming: isolated {} failed/errored test cases from '{}'", failed_ids.len(), path.display());
+            combined_dataset = combined_dataset.filter_by_ids(&failed_ids);
+        } else {
+            eprintln!("⚠️ Resume file not found: {resume_path}");
+        }
+    }
+    if let Some(ratio) = sample_ratio {
+        combined_dataset = combined_dataset.sample(ratio, seed);
+    }
+    if let Some(lim) = limit {
+        combined_dataset = combined_dataset.limit(lim);
     }
 
     println!(

@@ -119,6 +119,75 @@ impl WorkspaceEnv {
 
         Ok((passed, report))
     }
+
+    /// Initialize a git repository in the workspace and commit all initial files
+    pub fn git_init_repo(&self) -> Result<()> {
+        let root = self.workspace_path();
+        let _ = Command::new("git").arg("init").current_dir(&root).output()?;
+        let _ = Command::new("git").args(["config", "user.name", "Benchmark Agent"]).current_dir(&root).output()?;
+        let _ = Command::new("git").args(["config", "user.email", "agent@benchmark.local"]).current_dir(&root).output()?;
+        let _ = Command::new("git").args(["add", "."]).current_dir(&root).output()?;
+        let _ = Command::new("git").args(["commit", "-m", "Initial commit", "--allow-empty"]).current_dir(&root).output()?;
+        Ok(())
+    }
+
+    /// Extract unified git diff patch representing the modifications made by the agent
+    pub fn git_diff(&self) -> Result<String> {
+        let root = self.workspace_path();
+        let output = Command::new("git")
+            .args(["diff", "HEAD"])
+            .current_dir(&root)
+            .output()
+            .with_context(|| "Failed to execute git diff")?;
+
+        let diff = String::from_utf8_lossy(&output.stdout).to_string();
+        if diff.trim().is_empty() {
+            // Check untracked files
+            let untracked = Command::new("git")
+                .args(["status", "--porcelain"])
+                .current_dir(&root)
+                .output()?;
+            let status = String::from_utf8_lossy(&untracked.stdout).to_string();
+            return Ok(status);
+        }
+        Ok(diff)
+    }
+
+    /// List all relative file paths within the workspace directory
+    pub fn list_files(&self, subpath: Option<&str>) -> Result<Vec<String>> {
+        let mut results = Vec::new();
+        let target = match subpath {
+            Some(s) => self.workspace_path().join(s.trim_start_matches('/')),
+            None => self.workspace_path(),
+        };
+
+        if !target.exists() {
+            return Ok(results);
+        }
+
+        let root = self.workspace_path();
+        fn walk(dir: &Path, root: &Path, acc: &mut Vec<String>) -> Result<()> {
+            if dir.is_dir() {
+                for entry in fs::read_dir(dir)? {
+                    let entry = entry?;
+                    let path = entry.path();
+                    if path.file_name().and_then(|n| n.to_str()) == Some(".git") {
+                        continue;
+                    }
+                    if path.is_dir() {
+                        walk(&path, root, acc)?;
+                    } else if let Ok(rel) = path.strip_prefix(root) {
+                        acc.push(rel.to_string_lossy().to_string());
+                    }
+                }
+            }
+            Ok(())
+        }
+
+        walk(&target, &root, &mut results)?;
+        results.sort();
+        Ok(results)
+    }
 }
 
 impl SimulatedEnvironment for WorkspaceEnv {

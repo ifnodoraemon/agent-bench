@@ -79,27 +79,45 @@ impl BenchmarkOrchestrator {
                 )
                 .await
                 {
-                    Ok(r) => r,
-                    Err(_) => {
-                        Ok(CaseResult {
-                            test_case_id: case_id,
-                            test_case_name: case_name,
-                            category: case_cat,
-                            difficulty: case_diff,
-                            passed: false,
-                            score: 0.0,
-                            dimensions: None,
-                            reason: format!("Evaluation timed out after {timeout_secs}s"),
-                            latency_ms: timeout_secs * 1000,
-                            ttft_ms: None,
-                            tps: 0.0,
-                            prompt_tokens: 0,
-                            completion_tokens: 0,
-                            cost_usd: 0.0,
-                            model_output: String::new(),
-                            error: Some(format!("Timeout after {timeout_secs}s")),
-                        })
-                    }
+                    Ok(Ok(case_res)) => case_res,
+                    Ok(Err(err)) => CaseResult {
+                        test_case_id: case_id,
+                        test_case_name: case_name,
+                        category: case_cat,
+                        difficulty: case_diff,
+                        passed: false,
+                        score: 0.0,
+                        dimensions: None,
+                        reason: format!("Evaluation error: {err}"),
+                        latency_ms: 0,
+                        ttft_ms: None,
+                        tps: 0.0,
+                        prompt_tokens: 0,
+                        completion_tokens: 0,
+                        cost_usd: 0.0,
+                        model_output: String::new(),
+                        reasoning_content: None,
+                        error: Some(err.to_string()),
+                    },
+                    Err(_) => CaseResult {
+                        test_case_id: case_id,
+                        test_case_name: case_name,
+                        category: case_cat,
+                        difficulty: case_diff,
+                        passed: false,
+                        score: 0.0,
+                        dimensions: None,
+                        reason: format!("Evaluation timed out after {timeout_secs}s"),
+                        latency_ms: timeout_secs * 1000,
+                        ttft_ms: None,
+                        tps: 0.0,
+                        prompt_tokens: 0,
+                        completion_tokens: 0,
+                        cost_usd: 0.0,
+                        model_output: String::new(),
+                        reasoning_content: None,
+                        error: Some(format!("Timeout after {timeout_secs}s")),
+                    },
                 };
                 pb_clone.inc(1);
                 res
@@ -110,8 +128,31 @@ impl BenchmarkOrchestrator {
 
         let mut case_results = Vec::new();
         for task in tasks {
-            let res = task.await??;
-            case_results.push(res);
+            match task.await {
+                Ok(res) => case_results.push(res),
+                Err(join_err) => {
+                    tracing::error!("Worker task panicked or aborted: {join_err}");
+                    case_results.push(CaseResult {
+                        test_case_id: "panic_abort".to_string(),
+                        test_case_name: None,
+                        category: eval_core::dataset::Category::Foundation,
+                        difficulty: None,
+                        passed: false,
+                        score: 0.0,
+                        dimensions: None,
+                        reason: format!("Worker task panicked or was aborted: {join_err}"),
+                        latency_ms: 0,
+                        ttft_ms: None,
+                        tps: 0.0,
+                        prompt_tokens: 0,
+                        completion_tokens: 0,
+                        cost_usd: 0.0,
+                        model_output: String::new(),
+                        reasoning_content: None,
+                        error: Some(join_err.to_string()),
+                    });
+                }
+            }
         }
 
         pb.finish_with_message(format!(
@@ -152,8 +193,19 @@ impl BenchmarkOrchestrator {
 
         let mut summaries = Vec::new();
         for handle in handles {
-            let summary = handle.await??;
-            summaries.push(summary);
+            match handle.await {
+                Ok(Ok(summary)) => summaries.push(summary),
+                Ok(Err(err)) => {
+                    eprintln!("⚠️ Model evaluation failed with error: {err}");
+                }
+                Err(join_err) => {
+                    eprintln!("⚠️ Model evaluation task panicked: {join_err}");
+                }
+            }
+        }
+
+        if summaries.is_empty() {
+            anyhow::bail!("All model benchmarks failed.");
         }
 
         // Compute Head-to-Head Elo ratings across all evaluated models
@@ -259,6 +311,7 @@ impl BenchmarkOrchestrator {
                 completion_tokens: trajectory.completion_tokens,
                 cost_usd: trajectory.estimated_cost_usd,
                 model_output: final_output,
+                reasoning_content: None,
                 error: None,
             });
         }
@@ -292,6 +345,7 @@ impl BenchmarkOrchestrator {
                     completion_tokens: 0,
                     cost_usd: 0.0,
                     model_output: String::new(),
+                    reasoning_content: None,
                     error: Some(e.to_string()),
                 });
             }
@@ -377,6 +431,7 @@ impl BenchmarkOrchestrator {
             completion_tokens: model_resp.usage.completion_tokens,
             cost_usd: model_resp.estimated_cost_usd,
             model_output: model_resp.text,
+            reasoning_content: model_resp.reasoning_content,
             error: None,
         })
     }

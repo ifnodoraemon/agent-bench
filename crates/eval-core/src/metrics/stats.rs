@@ -31,6 +31,8 @@ pub struct CaseResult {
     pub completion_tokens: u32,
     pub cost_usd: f64,
     pub model_output: String,
+    #[serde(default)]
+    pub reasoning_content: Option<String>,
     pub error: Option<String>,
 }
 
