@@ -216,10 +216,79 @@ export function enrichModelSummary(summary) {
 
   const frontierAccuracy = l4l5Total > 0 ? (l4l5Passed / l4l5Total) : 0;
 
+  const { canonical, channel } = resolveCanonicalModelAndChannel(
+    summary.model_id,
+    summary.model_name,
+    summary.provider
+  );
+
   return {
     ...summary,
+    canonical_model: summary.canonical_name || canonical,
+    channel: summary.channel || channel,
     tier_breakdown: tiers,
     l4_l5_frontier_accuracy: frontierAccuracy,
     domain_scores: domainScores
   };
+}
+
+/**
+ * Resolves a model's canonical family and provider channel
+ */
+export function resolveCanonicalModelAndChannel(modelId, modelName, provider) {
+  const lowerId = (modelId || '').toLowerCase();
+  const lowerName = (modelName || '').toLowerCase();
+  const lowerProv = (provider || '').toLowerCase();
+
+  // 1. Resolve Channel
+  let channel = '官方直连 (Official)';
+  if (lowerId.includes('silicon') || lowerProv.includes('silicon')) {
+    channel = '硅基流动 (SiliconFlow)';
+  } else if (lowerId.includes('volc') || lowerId.includes('ark') || lowerId.startsWith('ep-') || lowerProv.includes('volc')) {
+    channel = '火山方舟 (Volcengine)';
+  } else if (lowerId.includes('openrouter') || lowerProv.includes('openrouter')) {
+    channel = 'OpenRouter';
+  } else if (lowerId.includes('dashscope') || lowerId.includes('bailian') || lowerProv.includes('aliyun')) {
+    channel = '阿里云百炼 (DashScope)';
+  } else if (lowerId.includes('together') || lowerProv.includes('together')) {
+    channel = 'Together AI';
+  } else if (lowerId.includes('groq') || lowerProv.includes('groq')) {
+    channel = 'Groq (LPU)';
+  } else if (lowerId.includes('bedrock') || lowerProv.includes('bedrock')) {
+    channel = 'AWS Bedrock';
+  } else if (lowerId.includes('vertex') || lowerProv.includes('vertex')) {
+    channel = 'GCP Vertex AI';
+  } else if (lowerId.includes('azure') || lowerProv.includes('azure')) {
+    channel = 'Azure AI Foundry';
+  } else if (lowerId.includes('vllm') || lowerId.includes('sglang') || lowerId.includes('local') || lowerId.includes('ollama')) {
+    channel = '私有集群 (Self-Hosted/vLLM)';
+  } else if (lowerId.startsWith('mock')) {
+    channel = '模拟沙盒 (Mock Sandbox)';
+  }
+
+  // 2. Resolve Canonical Model Family
+  let canonical = modelName || modelId;
+  if (lowerId.includes('deepseek-r1') || lowerId.includes('deepseek-reasoner') || lowerName.includes('deepseek-r1') || lowerName.includes('r1')) {
+    canonical = 'DeepSeek-R1';
+  } else if (lowerId.includes('deepseek-v3') || lowerId.includes('deepseek-chat') || lowerName.includes('deepseek-v3') || lowerName.includes('deepseek-v4')) {
+    canonical = 'DeepSeek-V3';
+  } else if (lowerId.includes('claude-3-5-sonnet') || lowerName.includes('claude-3.5-sonnet')) {
+    canonical = 'Claude-3.5-Sonnet';
+  } else if (lowerId.includes('gpt-4o-mini') || lowerName.includes('gpt-4o-mini')) {
+    canonical = 'GPT-4o-mini';
+  } else if (lowerId.includes('gpt-4o') || lowerName.includes('gpt-4o')) {
+    canonical = 'GPT-4o';
+  } else if (lowerId.includes('qwen2.5-72b') || lowerId.includes('qwen-2.5-72b') || lowerName.includes('qwen2.5-72b') || lowerName.includes('qwen3.8')) {
+    canonical = 'Qwen-2.5-72B';
+  } else if (lowerId.includes('glm-4') || lowerName.includes('glm-5') || lowerName.includes('glm')) {
+    canonical = 'GLM-4 / GLM-5';
+  } else if (lowerId.includes('llama-3.3-70b') || lowerId.includes('llama3.3:70b') || lowerName.includes('llama-3.3')) {
+    canonical = 'Llama-3.3-70B';
+  } else if (lowerId.startsWith('mock-pro')) {
+    canonical = 'Mock-Pro-v1';
+  } else if (lowerId.startsWith('mock-fast')) {
+    canonical = 'Mock-Fast-v1';
+  }
+
+  return { canonical, channel };
 }

@@ -52,6 +52,12 @@ pub struct CategorySummary {
 pub struct ModelBenchmarkSummary {
     pub model_id: String,
     pub model_name: String,
+    #[serde(default)]
+    pub provider: Option<String>,
+    #[serde(default)]
+    pub channel: Option<String>,
+    #[serde(default)]
+    pub canonical_name: Option<String>,
     pub total_cases: usize,
     pub passed_cases: usize,
     pub overall_accuracy: f64,          // Micro-Average Accuracy
@@ -82,17 +88,85 @@ fn default_elo() -> f64 {
     1200.0
 }
 
+pub fn resolve_canonical_and_channel(
+    model_id: &str,
+    model_name: &str,
+    provider: Option<&str>,
+) -> (String, String) {
+    let lower_id = model_id.to_lowercase();
+    let lower_name = model_name.to_lowercase();
+    let lower_prov = provider.unwrap_or("").to_lowercase();
+
+    // 1. Resolve Channel / Hosting Provider
+    let channel = if lower_id.contains("silicon") || lower_prov.contains("silicon") {
+        "硅基流动 (SiliconFlow)".to_string()
+    } else if lower_id.contains("volc") || lower_id.contains("ark") || lower_id.starts_with("ep-") || lower_prov.contains("volc") {
+        "火山方舟 (Volcengine)".to_string()
+    } else if lower_id.contains("openrouter") || lower_prov.contains("openrouter") {
+        "OpenRouter".to_string()
+    } else if lower_id.contains("dashscope") || lower_id.contains("bailian") || lower_prov.contains("aliyun") {
+        "阿里云百炼 (DashScope)".to_string()
+    } else if lower_id.contains("together") || lower_prov.contains("together") {
+        "Together AI".to_string()
+    } else if lower_id.contains("groq") || lower_prov.contains("groq") {
+        "Groq (LPU)".to_string()
+    } else if lower_id.contains("bedrock") || lower_prov.contains("bedrock") {
+        "AWS Bedrock".to_string()
+    } else if lower_id.contains("vertex") || lower_prov.contains("vertex") {
+        "GCP Vertex AI".to_string()
+    } else if lower_id.contains("azure") || lower_prov.contains("azure") {
+        "Azure AI Foundry".to_string()
+    } else if lower_id.contains("vllm") || lower_id.contains("sglang") || lower_id.contains("local") || lower_id.contains("ollama") {
+        "私有集群 (Self-Hosted/vLLM)".to_string()
+    } else if lower_id.starts_with("mock") {
+        "模拟环境 (Mock Sandbox)".to_string()
+    } else {
+        "官方直连 (Official)".to_string()
+    };
+
+    // 2. Resolve Canonical Model Family
+    let canonical = if lower_id.contains("deepseek-r1") || lower_id.contains("deepseek-reasoner") || lower_name.contains("deepseek-r1") || lower_name.contains("r1") {
+        "DeepSeek-R1".to_string()
+    } else if lower_id.contains("deepseek-v3") || lower_id.contains("deepseek-chat") || lower_name.contains("deepseek-v3") || lower_name.contains("deepseek-v4") {
+        "DeepSeek-V3".to_string()
+    } else if lower_id.contains("claude-3-5-sonnet") || lower_name.contains("claude-3.5-sonnet") {
+        "Claude-3.5-Sonnet".to_string()
+    } else if lower_id.contains("gpt-4o-mini") || lower_name.contains("gpt-4o-mini") {
+        "GPT-4o-mini".to_string()
+    } else if lower_id.contains("gpt-4o") || lower_name.contains("gpt-4o") {
+        "GPT-4o".to_string()
+    } else if lower_id.contains("qwen2.5-72b") || lower_id.contains("qwen-2.5-72b") || lower_name.contains("qwen2.5-72b") || lower_name.contains("qwen3.8") {
+        "Qwen-2.5-72B".to_string()
+    } else if lower_id.contains("glm-4") || lower_name.contains("glm-5") || lower_name.contains("glm") {
+        "GLM-4 / GLM-5".to_string()
+    } else if lower_id.contains("llama-3.3-70b") || lower_id.contains("llama3.3:70b") || lower_name.contains("llama-3.3") {
+        "Llama-3.3-70B".to_string()
+    } else if lower_id.starts_with("mock-pro") {
+        "Mock-Pro-v1".to_string()
+    } else if lower_id.starts_with("mock-fast") {
+        "Mock-Fast-v1".to_string()
+    } else {
+        model_name.to_string()
+    };
+
+    (canonical, channel)
+}
+
 impl ModelBenchmarkSummary {
     pub fn compute(
         model_id: String,
         model_name: String,
         case_results: Vec<CaseResult>,
     ) -> Self {
+        let (canonical_name, channel) = resolve_canonical_and_channel(&model_id, &model_name, None);
         let total_cases = case_results.len();
         if total_cases == 0 {
             return Self {
                 model_id,
                 model_name,
+                provider: None,
+                channel: Some(channel),
+                canonical_name: Some(canonical_name),
                 total_cases: 0,
                 passed_cases: 0,
                 overall_accuracy: 0.0,
@@ -272,6 +346,9 @@ impl ModelBenchmarkSummary {
         Self {
             model_id,
             model_name,
+            provider: None,
+            channel: Some(channel),
+            canonical_name: Some(canonical_name),
             total_cases,
             passed_cases,
             overall_accuracy,

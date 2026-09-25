@@ -224,6 +224,15 @@
             <span class="tab-icon">🛡️</span>
             <span class="tab-title">一键模型验真</span>
           </button>
+
+          <button
+            class="tab-btn channel-tab"
+            :class="{ active: currentTab === 'channels' }"
+            @click="currentTab = 'channels'"
+          >
+            <span class="tab-icon">🏢</span>
+            <span class="tab-title">多渠道同模型对比</span>
+          </button>
         </div>
 
         <!-- Tab Views -->
@@ -279,6 +288,11 @@
           <div v-show="currentTab === 'verification'">
             <ModelVerification :models="enrichedModels" />
           </div>
+
+          <!-- 10. Multi-Channel Same-Model Comparison -->
+          <div v-show="currentTab === 'channels'">
+            <ChannelComparison :models="enrichedModels" />
+          </div>
         </div>
       </div>
     </main>
@@ -308,6 +322,7 @@ import ModelComparison from './components/ModelComparison.vue';
 import DiagnosticInsights from './components/DiagnosticInsights.vue';
 import LiveBenchmarkRunner from './components/LiveBenchmarkRunner.vue';
 import ModelVerification from './components/ModelVerification.vue';
+import ChannelComparison from './components/ChannelComparison.vue';
 import { computeHeadToHeadElo } from './utils/elo';
 import { enrichModelSummary } from './utils/benchmark';
 
@@ -947,6 +962,16 @@ onMounted(() => {
   background: #10b981;
   border-color: transparent;
   box-shadow: 0 4px 12px rgba(16, 185, 129, 0.35);
+}
+
+.tab-btn.channel-tab {
+  border: 1px solid rgba(14, 165, 233, 0.4);
+  background: rgba(14, 165, 233, 0.08);
+}
+.tab-btn.channel-tab.active {
+  background: #0ea5e9;
+  border-color: transparent;
+  box-shadow: 0 4px 12px rgba(14, 165, 233, 0.35);
 }
 
 .tab-icon {
