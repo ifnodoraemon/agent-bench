@@ -4,6 +4,7 @@ pub mod metrics;
 pub mod model;
 pub mod prompts;
 pub mod reporter;
+pub mod verifier;
 
 pub use dataset::{Category, Dataset, DatasetLoader, EvaluationType, TestCase};
 pub use evaluators::{
@@ -17,3 +18,6 @@ pub use model::{
     TokenUsage, ToolCall, ToolDefinition,
 };
 pub use prompts::{PromptCatalog, PromptTemplate};
+pub use verifier::{
+    ModelVerifier, ProbeCategory, ProbeDefinition, ProbeResult, VerificationReport, STANDARD_PROBES,
+};

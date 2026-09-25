@@ -108,6 +108,37 @@ enum Commands {
         #[arg(long = "web-dist")]
         web_dist: Option<String>,
     },
+
+    /// One-click model authenticity verification and anti-spoofing fingerprinting
+    Verify {
+        /// Target model identifier in config or ad-hoc (e.g. mock-pro, deepseek-r1, gpt-4o)
+        #[arg(short = 'm', long = "model")]
+        model: Option<String>,
+
+        /// Expected authentic model claim to verify against (e.g. DeepSeek-R1, GPT-4o, Claude-3.5-Sonnet)
+        #[arg(short = 't', long = "target")]
+        target: Option<String>,
+
+        /// Path to configuration file (TOML)
+        #[arg(short = 'c', long = "config")]
+        config: Option<String>,
+
+        /// Custom API Base URL override
+        #[arg(long = "base-url")]
+        base_url: Option<String>,
+
+        /// Custom API Key override
+        #[arg(long = "api-key")]
+        api_key: Option<String>,
+
+        /// Protocol override (openai, anthropic, gemini, mock)
+        #[arg(long = "protocol")]
+        protocol: Option<String>,
+
+        /// Output verification report as raw JSON (useful for CI/CD gates)
+        #[arg(long = "json", default_value_t = false)]
+        json: bool,
+    },
 }
 
 #[tokio::main]
@@ -164,6 +195,20 @@ async fn main() -> Result<()> {
             web_dist,
         } => {
             commands::dashboard::execute(port, results, web_dist).await?;
+        }
+        Commands::Verify {
+            model,
+            target,
+            config,
+            base_url,
+            api_key,
+            protocol,
+            json,
+        } => {
+            commands::verify::execute_verify(
+                model, target, config, base_url, api_key, protocol, json,
+            )
+            .await?;
         }
     }
 

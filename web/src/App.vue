@@ -215,6 +215,15 @@
             <span class="tab-icon">🚀</span>
             <span class="tab-title">实时评测控制台</span>
           </button>
+
+          <button
+            class="tab-btn verify-tab"
+            :class="{ active: currentTab === 'verification' }"
+            @click="currentTab = 'verification'"
+          >
+            <span class="tab-icon">🛡️</span>
+            <span class="tab-title">一键模型验真</span>
+          </button>
         </div>
 
         <!-- Tab Views -->
@@ -265,6 +274,11 @@
           <div v-show="currentTab === 'live'">
             <LiveBenchmarkRunner @load-run="handleLoadNewRun" />
           </div>
+
+          <!-- 9. Model Verification -->
+          <div v-show="currentTab === 'verification'">
+            <ModelVerification :models="enrichedModels" />
+          </div>
         </div>
       </div>
     </main>
@@ -293,6 +307,7 @@ import CaseInspector from './components/CaseInspector.vue';
 import ModelComparison from './components/ModelComparison.vue';
 import DiagnosticInsights from './components/DiagnosticInsights.vue';
 import LiveBenchmarkRunner from './components/LiveBenchmarkRunner.vue';
+import ModelVerification from './components/ModelVerification.vue';
 import { computeHeadToHeadElo } from './utils/elo';
 import { enrichModelSummary } from './utils/benchmark';
 
@@ -922,6 +937,16 @@ onMounted(() => {
 .tab-btn.highlight-tab.active {
   background: var(--primary);
   border-color: transparent;
+}
+
+.tab-btn.verify-tab {
+  border: 1px solid rgba(16, 185, 129, 0.4);
+  background: rgba(16, 185, 129, 0.08);
+}
+.tab-btn.verify-tab.active {
+  background: #10b981;
+  border-color: transparent;
+  box-shadow: 0 4px 12px rgba(16, 185, 129, 0.35);
 }
 
 .tab-icon {
