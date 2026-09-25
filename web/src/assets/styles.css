@@ -1,17 +1,17 @@
 :root {
-  --font-sans: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif;
-  --font-mono: 'JetBrains Mono', monospace;
+  --font-sans: 'Plus Jakarta Sans', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  --font-mono: 'JetBrains Mono', 'Fira Code', monospace;
 
-  /* Dark Theme Default */
-  --bg-app: #090d16;
-  --bg-surface: #111827;
-  --bg-card: #162032;
-  --bg-subtle: #1e293b;
-  --bg-hover: #26354a;
+  /* Dark Theme Premium */
+  --bg-app: #080b12;
+  --bg-surface: #0e1524;
+  --bg-card: rgba(18, 26, 43, 0.75);
+  --bg-subtle: #172238;
+  --bg-hover: #21304d;
 
   --border-soft: rgba(255, 255, 255, 0.08);
   --border-strong: rgba(255, 255, 255, 0.16);
-  --border-focus: #6366f1;
+  --border-focus: #818cf8;
 
   --text-heading: #f8fafc;
   --text-body: #cbd5e1;
@@ -20,41 +20,42 @@
 
   --primary: #6366f1;
   --primary-hover: #4f46e5;
-  --primary-glow: rgba(99, 102, 241, 0.25);
+  --primary-glow: rgba(99, 102, 241, 0.35);
 
   --accent-emerald: #10b981;
   --emerald-bg: rgba(16, 185, 129, 0.12);
-  --emerald-border: rgba(16, 185, 129, 0.25);
+  --emerald-border: rgba(16, 185, 129, 0.3);
 
   --accent-amber: #f59e0b;
   --amber-bg: rgba(245, 158, 11, 0.12);
-  --amber-border: rgba(245, 158, 11, 0.25);
+  --amber-border: rgba(245, 158, 11, 0.3);
 
   --accent-rose: #f43f5e;
   --rose-bg: rgba(244, 63, 94, 0.12);
-  --rose-border: rgba(244, 63, 94, 0.25);
+  --rose-border: rgba(244, 63, 94, 0.3);
 
   --accent-sky: #0ea5e9;
   --sky-bg: rgba(14, 165, 233, 0.12);
-  --sky-border: rgba(14, 165, 233, 0.25);
+  --sky-border: rgba(14, 165, 233, 0.3);
 
   --accent-purple: #a855f7;
-  --purple-bg: rgba(168, 85, 247, 0.12);
-  --purple-border: rgba(168, 85, 247, 0.25);
+  --purple-bg: rgba(168, 85, 247, 0.15);
+  --purple-border: rgba(168, 85, 247, 0.35);
 
-  --shadow-card: 0 4px 20px -2px rgba(0, 0, 0, 0.5);
-  --shadow-hover: 0 8px 30px -4px rgba(0, 0, 0, 0.65);
+  --shadow-card: 0 8px 32px 0 rgba(0, 0, 0, 0.45);
+  --shadow-hover: 0 16px 40px -8px rgba(0, 0, 0, 0.7);
+  --shadow-glow: 0 0 24px -4px rgba(99, 102, 241, 0.25);
 }
 
 [data-theme="warm"] {
   --bg-app: #f8fafc;
   --bg-surface: #ffffff;
-  --bg-card: #f1f5f9;
-  --bg-subtle: #e2e8f0;
-  --bg-hover: #cbd5e1;
+  --bg-card: rgba(255, 255, 255, 0.9);
+  --bg-subtle: #f1f5f9;
+  --bg-hover: #e2e8f0;
 
   --border-soft: rgba(0, 0, 0, 0.08);
-  --border-strong: rgba(0, 0, 0, 0.15);
+  --border-strong: rgba(0, 0, 0, 0.14);
   --border-focus: #4f46e5;
 
   --text-heading: #0f172a;
@@ -66,23 +67,24 @@
   --primary-hover: #4338ca;
   --primary-glow: rgba(79, 70, 229, 0.2);
 
-  --emerald-bg: rgba(16, 185, 129, 0.1);
-  --emerald-border: rgba(16, 185, 129, 0.3);
+  --emerald-bg: rgba(16, 185, 129, 0.08);
+  --emerald-border: rgba(16, 185, 129, 0.25);
 
-  --amber-bg: rgba(245, 158, 11, 0.1);
-  --amber-border: rgba(245, 158, 11, 0.3);
+  --amber-bg: rgba(245, 158, 11, 0.08);
+  --amber-border: rgba(245, 158, 11, 0.25);
 
-  --rose-bg: rgba(244, 63, 94, 0.1);
-  --rose-border: rgba(244, 63, 94, 0.3);
+  --rose-bg: rgba(244, 63, 94, 0.08);
+  --rose-border: rgba(244, 63, 94, 0.25);
 
-  --sky-bg: rgba(14, 165, 233, 0.1);
-  --sky-border: rgba(14, 165, 233, 0.3);
+  --sky-bg: rgba(14, 165, 233, 0.08);
+  --sky-border: rgba(14, 165, 233, 0.25);
 
-  --purple-bg: rgba(168, 85, 247, 0.1);
-  --purple-border: rgba(168, 85, 247, 0.3);
+  --purple-bg: rgba(168, 85, 247, 0.08);
+  --purple-border: rgba(168, 85, 247, 0.25);
 
-  --shadow-card: 0 2px 12px -1px rgba(0, 0, 0, 0.06);
-  --shadow-hover: 0 6px 20px -2px rgba(0, 0, 0, 0.1);
+  --shadow-card: 0 4px 20px -2px rgba(0, 0, 0, 0.05);
+  --shadow-hover: 0 10px 30px -4px rgba(0, 0, 0, 0.1);
+  --shadow-glow: 0 0 20px -4px rgba(79, 70, 229, 0.15);
 }
 
 * {
@@ -93,14 +95,19 @@
 
 body {
   font-family: var(--font-sans);
-  background: var(--bg-app);
+  background-color: var(--bg-app);
+  background-image:
+    radial-gradient(circle at 50% 0%, rgba(99, 102, 241, 0.12) 0%, transparent 55%),
+    radial-gradient(circle at 100% 40%, rgba(168, 85, 247, 0.07) 0%, transparent 45%),
+    radial-gradient(circle at 0% 70%, rgba(14, 165, 233, 0.06) 0%, transparent 40%);
+  background-attachment: fixed;
   color: var(--text-body);
   line-height: 1.5;
   -webkit-font-smoothing: antialiased;
   min-height: 100vh;
 }
 
-/* Custom Scrollbar */
+/* Custom Smooth Scrollbar */
 ::-webkit-scrollbar {
   width: 6px;
   height: 6px;
@@ -113,35 +120,162 @@ body {
   border-radius: 4px;
 }
 ::-webkit-scrollbar-thumb:hover {
-  background: var(--text-faint);
+  background: var(--text-muted);
 }
 
 /* Common Badges */
 .badge {
   display: inline-flex;
   align-items: center;
-  gap: 0.3rem;
-  padding: 0.2rem 0.55rem;
+  gap: 0.35rem;
+  padding: 0.22rem 0.6rem;
   border-radius: 6px;
   font-weight: 700;
   font-size: 0.78rem;
   letter-spacing: -0.01em;
   white-space: nowrap;
+  backdrop-filter: blur(4px);
+  transition: transform 0.15s ease;
 }
-.badge-success { background: var(--emerald-bg); color: var(--accent-emerald); border: 1px solid var(--emerald-border); }
-.badge-warning { background: var(--amber-bg); color: var(--accent-amber); border: 1px solid var(--amber-border); }
-.badge-danger { background: var(--rose-bg); color: var(--accent-rose); border: 1px solid var(--rose-border); }
-.badge-info { background: var(--sky-bg); color: var(--accent-sky); border: 1px solid var(--sky-border); }
-.badge-purple { background: var(--purple-bg); color: var(--accent-purple); border: 1px solid var(--purple-border); }
+.badge:hover {
+  transform: translateY(-1px);
+}
 
-/* Difficulty Tier Badges */
-.badge-tier-l1 { background: var(--sky-bg); color: var(--accent-sky); border: 1px solid var(--sky-border); }
-.badge-tier-l2 { background: var(--emerald-bg); color: var(--accent-emerald); border: 1px solid var(--emerald-border); }
-.badge-tier-l3 { background: var(--amber-bg); color: var(--accent-amber); border: 1px solid var(--amber-border); }
-.badge-tier-l4 { background: rgba(168, 85, 247, 0.18); color: #c084fc; border: 1px solid rgba(168, 85, 247, 0.4); font-weight: 800; }
-.badge-tier-l5 { background: rgba(239, 68, 68, 0.2); color: #f87171; border: 1px solid rgba(239, 68, 68, 0.45); font-weight: 900; }
+.badge-success {
+  background: var(--emerald-bg);
+  color: var(--accent-emerald);
+  border: 1px solid var(--emerald-border);
+}
+.badge-warning {
+  background: var(--amber-bg);
+  color: var(--accent-amber);
+  border: 1px solid var(--amber-border);
+}
+.badge-danger {
+  background: var(--rose-bg);
+  color: var(--accent-rose);
+  border: 1px solid var(--rose-border);
+}
+.badge-info {
+  background: var(--sky-bg);
+  color: var(--accent-sky);
+  border: 1px solid var(--sky-border);
+}
+.badge-purple {
+  background: var(--purple-bg);
+  color: var(--accent-purple);
+  border: 1px solid var(--purple-border);
+}
 
-/* Code Boxes */
+/* Difficulty Tier Badges with Premium Styling */
+.badge-tier-l1 {
+  background: rgba(14, 165, 233, 0.15);
+  color: #38bdf8;
+  border: 1px solid rgba(14, 165, 233, 0.35);
+}
+.badge-tier-l2 {
+  background: rgba(16, 185, 129, 0.15);
+  color: #34d399;
+  border: 1px solid rgba(16, 185, 129, 0.35);
+}
+.badge-tier-l3 {
+  background: rgba(245, 158, 11, 0.15);
+  color: #fbbf24;
+  border: 1px solid rgba(245, 158, 11, 0.35);
+}
+.badge-tier-l4 {
+  background: rgba(168, 85, 247, 0.2);
+  color: #d8b4fe;
+  border: 1px solid rgba(168, 85, 247, 0.5);
+  box-shadow: 0 0 10px rgba(168, 85, 247, 0.2);
+  font-weight: 800;
+}
+.badge-tier-l5 {
+  background: rgba(239, 68, 68, 0.22);
+  color: #fca5a5;
+  border: 1px solid rgba(239, 68, 68, 0.55);
+  box-shadow: 0 0 12px rgba(239, 68, 68, 0.25);
+  font-weight: 900;
+}
+
+/* Medal Ranks */
+.rank-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 28px;
+  border-radius: 6px;
+  font-weight: 800;
+  font-family: var(--font-mono);
+  font-size: 0.85rem;
+}
+.rank-1 {
+  background: linear-gradient(135deg, rgba(245, 158, 11, 0.3), rgba(217, 119, 6, 0.15));
+  border: 1px solid rgba(245, 158, 11, 0.6);
+  color: #fbbf24;
+  box-shadow: 0 0 12px rgba(245, 158, 11, 0.25);
+}
+.rank-2 {
+  background: linear-gradient(135deg, rgba(148, 163, 184, 0.25), rgba(100, 116, 139, 0.1));
+  border: 1px solid rgba(148, 163, 184, 0.5);
+  color: #e2e8f0;
+}
+.rank-3 {
+  background: linear-gradient(135deg, rgba(249, 115, 22, 0.25), rgba(194, 65, 12, 0.1));
+  border: 1px solid rgba(249, 115, 22, 0.5);
+  color: #fdba74;
+}
+
+/* Code Boxes with Mac Terminal Look */
+.code-box-wrapper {
+  display: flex;
+  flex-direction: column;
+  background: var(--bg-card);
+  border: 1px solid var(--border-soft);
+  border-radius: 10px;
+  overflow: hidden;
+}
+
+.terminal-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.45rem 0.85rem;
+  background: var(--bg-surface);
+  border-bottom: 1px solid var(--border-soft);
+}
+
+.terminal-dots {
+  display: flex;
+  gap: 0.35rem;
+}
+.t-dot {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  display: inline-block;
+}
+.t-dot-red { background: #ef4444; }
+.t-dot-yellow { background: #f59e0b; }
+.t-dot-green { background: #10b981; }
+
+.btn-copy {
+  background: transparent;
+  border: none;
+  color: var(--text-muted);
+  font-size: 0.72rem;
+  font-weight: 600;
+  cursor: pointer;
+  padding: 0.15rem 0.4rem;
+  border-radius: 4px;
+  transition: all 0.15s ease;
+}
+.btn-copy:hover {
+  background: var(--bg-subtle);
+  color: var(--text-heading);
+}
+
 .code-box {
   background: var(--bg-card);
   border: 1px solid var(--border-soft);
@@ -154,4 +288,15 @@ body {
   word-break: break-word;
   max-height: 380px;
   overflow-y: auto;
+  backdrop-filter: blur(4px);
+}
+
+/* Animations */
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(6px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.fade-in {
+  animation: fadeIn 0.25s cubic-bezier(0.16, 1, 0.3, 1) forwards;
 }

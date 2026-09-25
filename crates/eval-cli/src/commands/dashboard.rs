@@ -168,6 +168,14 @@ pub async fn execute(
             let is_head = method == "HEAD";
             let is_post = method == "POST";
             let is_get = method == "GET";
+            let is_options = method == "OPTIONS";
+
+            if is_options {
+                let _ = socket.write_all(
+                    b"HTTP/1.1 204 No Content\r\nAccess-Control-Allow-Origin: *\r\nAccess-Control-Allow-Methods: GET, POST, OPTIONS, HEAD\r\nAccess-Control-Allow-Headers: *\r\nContent-Length: 0\r\nConnection: close\r\n\r\n"
+                ).await;
+                return;
+            }
 
             if !is_get && !is_head && !is_post {
                 let _ = socket.write_all(b"HTTP/1.1 405 Method Not Allowed\r\nContent-Length: 0\r\n\r\n").await;

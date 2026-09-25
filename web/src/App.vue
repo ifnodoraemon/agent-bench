@@ -793,17 +793,40 @@ onMounted(() => {
   display: flex;
   align-items: center;
   gap: 0.9rem;
-  transition: transform 0.2s ease, border-color 0.2s ease;
+  transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+  backdrop-filter: blur(10px);
+  position: relative;
+  overflow: hidden;
+}
+
+.kpi-card::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background: transparent;
+  transition: background 0.25s ease;
 }
 
 .kpi-card:hover {
-  transform: translateY(-2px);
+  transform: translateY(-3px);
   border-color: var(--border-strong);
+  box-shadow: var(--shadow-hover);
+}
+
+.kpi-card:hover::before {
+  background: linear-gradient(90deg, #6366f1, #a855f7);
 }
 
 .rank-first-card {
-  border-color: rgba(245, 158, 11, 0.35);
-  background: linear-gradient(135deg, var(--bg-card) 60%, rgba(245, 158, 11, 0.08) 100%);
+  border-color: rgba(245, 158, 11, 0.4);
+  background: linear-gradient(135deg, var(--bg-card) 60%, rgba(245, 158, 11, 0.12) 100%);
+  box-shadow: 0 4px 20px -2px rgba(245, 158, 11, 0.12);
+}
+.rank-first-card:hover::before {
+  background: linear-gradient(90deg, #f59e0b, #fbbf24);
 }
 
 .kpi-icon-wrap {

@@ -149,6 +149,13 @@
               <span class="lbl">TPS:</span>
               <span class="val">{{ c.tps.toFixed(1) }}</span>
             </div>
+            <button
+              class="btn-copy-case"
+              @click.stop="copyFullCase(c)"
+              title="复制此用例完整 Markdown 报告"
+            >
+              {{ copiedId === 'full-' + c.test_case_id ? '✓ 已复制报告' : '📋 复制报告' }}
+            </button>
             <button class="expand-icon-btn">
               {{ isExpanded(c.test_case_id) ? '▲ 收起' : '▼ 展开详情' }}
             </button>
@@ -224,39 +231,86 @@
 
           <!-- Deep Thinking Trace Section (if present) -->
           <div v-if="getThinking(c).thinking" class="detail-section thinking-section">
-            <div class="section-title thinking-title">
-              <span class="icon">🧠</span>
-              <strong>深度思考链 (Deep Thinking Trace)</strong>
-              <span class="token-hint">{{ getThinking(c).thinking.length }} 字符</span>
+            <div class="code-box-wrapper">
+              <div class="terminal-bar">
+                <div class="terminal-dots">
+                  <span class="t-dot t-dot-red"></span>
+                  <span class="t-dot t-dot-yellow"></span>
+                  <span class="t-dot t-dot-green"></span>
+                </div>
+                <div class="terminal-title">🧠 深度思考链 (Deep Thinking Trace) · {{ getThinking(c).thinking.length }} 字符</div>
+                <button
+                  class="btn-copy"
+                  @click.stop="copyText(getThinking(c).thinking, 'thinking-' + c.test_case_id)"
+                >
+                  {{ copiedId === 'thinking-' + c.test_case_id ? '✓ 已复制' : '📋 复制思考链' }}
+                </button>
+              </div>
+              <div class="code-box thinking-box">{{ getThinking(c).thinking }}</div>
             </div>
-            <div class="code-box thinking-box">{{ getThinking(c).thinking }}</div>
           </div>
 
           <!-- Final Model Output Section -->
           <div class="detail-section">
-            <div class="section-title">
-              <span class="icon">💬</span>
-              <strong>模型最终输出 (Model Output)</strong>
+            <div class="code-box-wrapper">
+              <div class="terminal-bar">
+                <div class="terminal-dots">
+                  <span class="t-dot t-dot-red"></span>
+                  <span class="t-dot t-dot-yellow"></span>
+                  <span class="t-dot t-dot-green"></span>
+                </div>
+                <div class="terminal-title">💬 模型最终输出 (Model Output)</div>
+                <button
+                  class="btn-copy"
+                  @click.stop="copyText(getThinking(c).response || c.model_output, 'output-' + c.test_case_id)"
+                >
+                  {{ copiedId === 'output-' + c.test_case_id ? '✓ 已复制' : '📋 复制输出' }}
+                </button>
+              </div>
+              <div class="code-box output-box">{{ getThinking(c).response || c.model_output || '（无输出内容）' }}</div>
             </div>
-            <div class="code-box output-box">{{ getThinking(c).response || '（无输出内容）' }}</div>
           </div>
 
           <!-- Verification Reason / Execution Trace -->
           <div class="detail-section">
-            <div class="section-title">
-              <span class="icon">🧪</span>
-              <strong>判定结论与测试运行反馈 (Verifier Output)</strong>
+            <div class="code-box-wrapper">
+              <div class="terminal-bar">
+                <div class="terminal-dots">
+                  <span class="t-dot t-dot-red"></span>
+                  <span class="t-dot t-dot-yellow"></span>
+                  <span class="t-dot t-dot-green"></span>
+                </div>
+                <div class="terminal-title">🧪 判定结论与反馈 (Verifier Output)</div>
+                <button
+                  class="btn-copy"
+                  @click.stop="copyText(c.reason, 'reason-' + c.test_case_id)"
+                >
+                  {{ copiedId === 'reason-' + c.test_case_id ? '✓ 已复制' : '📋 复制反馈' }}
+                </button>
+              </div>
+              <div class="code-box verifier-box">{{ c.reason || '（无测试反馈）' }}</div>
             </div>
-            <div class="code-box verifier-box">{{ c.reason || '（无测试反馈）' }}</div>
           </div>
 
           <!-- Error Details if failed -->
           <div v-if="c.error" class="detail-section error-section">
-            <div class="section-title error-title">
-              <span class="icon">⚠️</span>
-              <strong>运行时异常与错误堆栈 (Execution Error)</strong>
+            <div class="code-box-wrapper">
+              <div class="terminal-bar">
+                <div class="terminal-dots">
+                  <span class="t-dot t-dot-red"></span>
+                  <span class="t-dot t-dot-yellow"></span>
+                  <span class="t-dot t-dot-green"></span>
+                </div>
+                <div class="terminal-title">⚠️ 运行时异常堆栈 (Execution Error)</div>
+                <button
+                  class="btn-copy"
+                  @click.stop="copyText(c.error, 'error-' + c.test_case_id)"
+                >
+                  {{ copiedId === 'error-' + c.test_case_id ? '✓ 已复制' : '📋 复制错误' }}
+                </button>
+              </div>
+              <div class="code-box error-box">{{ c.error }}</div>
             </div>
-            <div class="code-box error-box">{{ c.error }}</div>
           </div>
         </div>
       </div>
@@ -441,6 +495,45 @@ const subsetAvgTps = computed(() => {
   const sum = valid.reduce((acc, c) => acc + c.tps, 0);
   return (sum / valid.length).toFixed(1);
 });
+
+const copiedId = ref('');
+
+function copyText(text, id) {
+  if (!text) return;
+  const content = typeof text === 'string' ? text : JSON.stringify(text, null, 2);
+  navigator.clipboard.writeText(content)
+    .then(() => {
+      copiedId.value = id;
+      setTimeout(() => {
+        if (copiedId.value === id) {
+          copiedId.value = '';
+        }
+      }, 2000);
+    })
+    .catch(() => {});
+}
+
+function copyFullCase(c) {
+  const thinkingObj = getThinking(c);
+  const md = `### 测试用例: ${c.test_case_id}
+- **难度阶梯**: ${c.resolved_tier || 'L3'}
+- **分类**: ${CATEGORY_NAMES[c.category] || c.category}
+- **评测结果**: ${c.passed ? '✓ 通过' : '✕ 失败'} (得分: ${c.score})
+- **延迟/TPS**: ${Math.round(c.latency_ms)}ms / ${c.tps ? c.tps.toFixed(1) + ' tok/s' : '-'}
+
+#### 模型输出
+\`\`\`
+${thinkingObj.response || c.model_output || ''}
+\`\`\`
+
+#### 判定与反馈
+\`\`\`
+${c.reason || '无'}
+\`\`\`
+${c.error ? `\n#### 错误堆栈\n\`\`\`\n${c.error}\n\`\`\`` : ''}
+`;
+  copyText(md, 'full-' + c.test_case_id);
+}
 
 function getThinking(c) {
   return extractThinking(c.model_output);
@@ -744,6 +837,23 @@ function exportCurrentBadcases() {
 .metric-chip .val.good { color: var(--accent-emerald); }
 .metric-chip .val.bad { color: var(--accent-rose); }
 
+.btn-copy-case {
+  background: var(--bg-subtle);
+  border: 1px solid var(--border-soft);
+  color: var(--text-muted);
+  font-size: 0.72rem;
+  font-weight: 600;
+  padding: 0.2rem 0.55rem;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+.btn-copy-case:hover {
+  background: var(--bg-hover);
+  color: var(--text-heading);
+  border-color: var(--border-strong);
+}
+
 .expand-icon-btn {
   background: transparent;
   border: none;
@@ -751,6 +861,19 @@ function exportCurrentBadcases() {
   font-size: 0.78rem;
   font-weight: 600;
   cursor: pointer;
+  padding: 0.2rem 0.4rem;
+  border-radius: 4px;
+  transition: background 0.15s ease;
+}
+.expand-icon-btn:hover {
+  background: var(--bg-subtle);
+}
+
+.terminal-title {
+  font-size: 0.78rem;
+  font-weight: 700;
+  color: var(--text-muted);
+  font-family: var(--font-mono);
 }
 
 .dimensions-strip {

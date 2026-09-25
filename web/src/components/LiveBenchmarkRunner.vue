@@ -517,17 +517,28 @@ onBeforeUnmount(() => {
   background: var(--bg-subtle);
   border-radius: 5px;
   overflow: hidden;
+  box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.2);
 }
 
 .progress-fill {
   height: 100%;
-  background: linear-gradient(90deg, #6366f1, #a855f7);
-  transition: width 0.3s ease;
+  background: linear-gradient(90deg, #6366f1 0%, #a855f7 35%, #38bdf8 70%, #6366f1 100%);
+  background-size: 200% 100%;
+  animation: barShimmer 2.2s linear infinite;
+  transition: width 0.35s cubic-bezier(0.4, 0, 0.2, 1);
   border-radius: 5px;
+  box-shadow: 0 0 12px rgba(99, 102, 241, 0.4);
+}
+
+@keyframes barShimmer {
+  0% { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
 }
 
 .fill-completed {
-  background: #10b981;
+  background: linear-gradient(90deg, #10b981, #059669);
+  animation: none;
+  box-shadow: 0 0 12px rgba(16, 185, 129, 0.4);
 }
 
 /* Live KPI */

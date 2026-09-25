@@ -1,13 +1,26 @@
 <template>
   <div class="leaderboard-wrapper">
     <div class="table-toolbar">
-      <div class="search-box">
-        <input
-          v-model="searchQuery"
-          type="text"
-          placeholder="🔍 搜索模型名称或标识..."
-          class="table-search-input"
-        />
+      <div class="toolbar-left">
+        <div class="search-box">
+          <input
+            v-model="searchQuery"
+            type="text"
+            placeholder="🔍 搜索模型名称或标识..."
+            class="table-search-input"
+          />
+        </div>
+        <div class="filter-chips">
+          <button
+            v-for="chip in filterChips"
+            :key="chip.id"
+            class="chip-btn"
+            :class="{ active: activeFilterChip === chip.id }"
+            @click="activeFilterChip = chip.id"
+          >
+            {{ chip.label }}
+          </button>
+        </div>
       </div>
       <div class="actions">
         <button class="btn btn-secondary" @click="emitExport">
@@ -126,8 +139,17 @@ const props = defineProps({
 const emit = defineEmits(['select-model']);
 
 const searchQuery = ref('');
+const activeFilterChip = ref('all');
 const sortKey = ref('overall_accuracy');
 const sortOrder = ref('desc');
+
+const filterChips = [
+  { id: 'all', label: '全部模型' },
+  { id: 'elo_top', label: '🏆 Elo 高分 (≥1200)' },
+  { id: 'frontier_top', label: '⚡ 前沿卓越 (L4/L5≥60%)' },
+  { id: 'low_latency', label: '🚀 极速低延 (≤2500ms)' },
+  { id: 'cost_effective', label: '💰 经济高效 (≤$0.015)' },
+];
 
 function sortBy(key) {
   if (sortKey.value === key) {
@@ -145,6 +167,17 @@ function sortIcon(key) {
 
 const sortedModels = computed(() => {
   let list = [...props.models];
+
+  // Quick chips filter
+  if (activeFilterChip.value === 'elo_top') {
+    list = list.filter(m => (m.computed_elo || m.elo_rating || 1200) >= 1200);
+  } else if (activeFilterChip.value === 'frontier_top') {
+    list = list.filter(m => (m.l4_l5_frontier_accuracy || 0) >= 0.6);
+  } else if (activeFilterChip.value === 'low_latency') {
+    list = list.filter(m => (m.avg_latency_ms || 9999) <= 2500);
+  } else if (activeFilterChip.value === 'cost_effective') {
+    list = list.filter(m => (m.total_cost_usd || 0) <= 0.015);
+  }
 
   if (searchQuery.value.trim()) {
     const q = searchQuery.value.toLowerCase().trim();
@@ -212,19 +245,57 @@ function emitExport() {
   flex-wrap: wrap;
 }
 
+.toolbar-left {
+  display: flex;
+  align-items: center;
+  gap: 0.85rem;
+  flex-wrap: wrap;
+}
+
 .table-search-input {
   background: var(--bg-card);
   border: 1px solid var(--border-soft);
   border-radius: 8px;
-  padding: 0.5rem 0.9rem;
+  padding: 0.45rem 0.85rem;
   color: var(--text-heading);
-  font-size: 0.86rem;
-  width: 280px;
+  font-size: 0.84rem;
+  width: 240px;
   outline: none;
-  transition: border-color 0.2s;
+  transition: all 0.2s;
 }
 .table-search-input:focus {
   border-color: var(--border-focus);
+  box-shadow: 0 0 10px rgba(99, 102, 241, 0.2);
+}
+
+.filter-chips {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  flex-wrap: wrap;
+}
+
+.chip-btn {
+  background: var(--bg-card);
+  border: 1px solid var(--border-soft);
+  color: var(--text-muted);
+  font-size: 0.76rem;
+  font-weight: 600;
+  padding: 0.35rem 0.65rem;
+  border-radius: 20px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+.chip-btn:hover {
+  background: var(--bg-hover);
+  color: var(--text-heading);
+  border-color: var(--border-strong);
+}
+.chip-btn.active {
+  background: rgba(99, 102, 241, 0.15);
+  border-color: var(--primary);
+  color: var(--primary);
+  font-weight: 700;
 }
 
 .btn {
@@ -286,14 +357,14 @@ function emitExport() {
 
 .data-table tbody tr {
   border-bottom: 1px solid var(--border-soft);
-  transition: background 0.15s;
+  transition: all 0.15s ease;
   cursor: pointer;
 }
 .data-table tbody tr:hover {
   background: var(--bg-hover);
 }
 .data-table tbody tr.selected {
-  background: rgba(99, 102, 241, 0.15);
+  background: rgba(99, 102, 241, 0.12);
   border-left: 3px solid var(--primary);
 }
 
@@ -301,17 +372,6 @@ function emitExport() {
   padding: 0.95rem 1.1rem;
   white-space: nowrap;
 }
-
-.rank-badge {
-  display: inline-block;
-  font-weight: 800;
-  padding: 0.2rem 0.5rem;
-  border-radius: 6px;
-  font-size: 0.8rem;
-}
-.rank-1 { background: rgba(245, 158, 11, 0.2); color: #f59e0b; border: 1px solid rgba(245, 158, 11, 0.4); }
-.rank-2 { background: rgba(148, 163, 184, 0.2); color: #94a3b8; border: 1px solid rgba(148, 163, 184, 0.4); }
-.rank-3 { background: rgba(217, 119, 6, 0.2); color: #d97706; border: 1px solid rgba(217, 119, 6, 0.4); }
 
 .model-info {
   display: flex;
