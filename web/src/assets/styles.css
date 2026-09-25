@@ -1,0 +1,157 @@
+:root {
+  --font-sans: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif;
+  --font-mono: 'JetBrains Mono', monospace;
+
+  /* Dark Theme Default */
+  --bg-app: #090d16;
+  --bg-surface: #111827;
+  --bg-card: #162032;
+  --bg-subtle: #1e293b;
+  --bg-hover: #26354a;
+
+  --border-soft: rgba(255, 255, 255, 0.08);
+  --border-strong: rgba(255, 255, 255, 0.16);
+  --border-focus: #6366f1;
+
+  --text-heading: #f8fafc;
+  --text-body: #cbd5e1;
+  --text-muted: #94a3b8;
+  --text-faint: #64748b;
+
+  --primary: #6366f1;
+  --primary-hover: #4f46e5;
+  --primary-glow: rgba(99, 102, 241, 0.25);
+
+  --accent-emerald: #10b981;
+  --emerald-bg: rgba(16, 185, 129, 0.12);
+  --emerald-border: rgba(16, 185, 129, 0.25);
+
+  --accent-amber: #f59e0b;
+  --amber-bg: rgba(245, 158, 11, 0.12);
+  --amber-border: rgba(245, 158, 11, 0.25);
+
+  --accent-rose: #f43f5e;
+  --rose-bg: rgba(244, 63, 94, 0.12);
+  --rose-border: rgba(244, 63, 94, 0.25);
+
+  --accent-sky: #0ea5e9;
+  --sky-bg: rgba(14, 165, 233, 0.12);
+  --sky-border: rgba(14, 165, 233, 0.25);
+
+  --accent-purple: #a855f7;
+  --purple-bg: rgba(168, 85, 247, 0.12);
+  --purple-border: rgba(168, 85, 247, 0.25);
+
+  --shadow-card: 0 4px 20px -2px rgba(0, 0, 0, 0.5);
+  --shadow-hover: 0 8px 30px -4px rgba(0, 0, 0, 0.65);
+}
+
+[data-theme="warm"] {
+  --bg-app: #f8fafc;
+  --bg-surface: #ffffff;
+  --bg-card: #f1f5f9;
+  --bg-subtle: #e2e8f0;
+  --bg-hover: #cbd5e1;
+
+  --border-soft: rgba(0, 0, 0, 0.08);
+  --border-strong: rgba(0, 0, 0, 0.15);
+  --border-focus: #4f46e5;
+
+  --text-heading: #0f172a;
+  --text-body: #334155;
+  --text-muted: #64748b;
+  --text-faint: #94a3b8;
+
+  --primary: #4f46e5;
+  --primary-hover: #4338ca;
+  --primary-glow: rgba(79, 70, 229, 0.2);
+
+  --emerald-bg: rgba(16, 185, 129, 0.1);
+  --emerald-border: rgba(16, 185, 129, 0.3);
+
+  --amber-bg: rgba(245, 158, 11, 0.1);
+  --amber-border: rgba(245, 158, 11, 0.3);
+
+  --rose-bg: rgba(244, 63, 94, 0.1);
+  --rose-border: rgba(244, 63, 94, 0.3);
+
+  --sky-bg: rgba(14, 165, 233, 0.1);
+  --sky-border: rgba(14, 165, 233, 0.3);
+
+  --purple-bg: rgba(168, 85, 247, 0.1);
+  --purple-border: rgba(168, 85, 247, 0.3);
+
+  --shadow-card: 0 2px 12px -1px rgba(0, 0, 0, 0.06);
+  --shadow-hover: 0 6px 20px -2px rgba(0, 0, 0, 0.1);
+}
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  font-family: var(--font-sans);
+  background: var(--bg-app);
+  color: var(--text-body);
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+  min-height: 100vh;
+}
+
+/* Custom Scrollbar */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: var(--border-strong);
+  border-radius: 4px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: var(--text-faint);
+}
+
+/* Common Badges */
+.badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  padding: 0.2rem 0.55rem;
+  border-radius: 6px;
+  font-weight: 700;
+  font-size: 0.78rem;
+  letter-spacing: -0.01em;
+  white-space: nowrap;
+}
+.badge-success { background: var(--emerald-bg); color: var(--accent-emerald); border: 1px solid var(--emerald-border); }
+.badge-warning { background: var(--amber-bg); color: var(--accent-amber); border: 1px solid var(--amber-border); }
+.badge-danger { background: var(--rose-bg); color: var(--accent-rose); border: 1px solid var(--rose-border); }
+.badge-info { background: var(--sky-bg); color: var(--accent-sky); border: 1px solid var(--sky-border); }
+.badge-purple { background: var(--purple-bg); color: var(--accent-purple); border: 1px solid var(--purple-border); }
+
+/* Difficulty Tier Badges */
+.badge-tier-l1 { background: var(--sky-bg); color: var(--accent-sky); border: 1px solid var(--sky-border); }
+.badge-tier-l2 { background: var(--emerald-bg); color: var(--accent-emerald); border: 1px solid var(--emerald-border); }
+.badge-tier-l3 { background: var(--amber-bg); color: var(--accent-amber); border: 1px solid var(--amber-border); }
+.badge-tier-l4 { background: rgba(168, 85, 247, 0.18); color: #c084fc; border: 1px solid rgba(168, 85, 247, 0.4); font-weight: 800; }
+.badge-tier-l5 { background: rgba(239, 68, 68, 0.2); color: #f87171; border: 1px solid rgba(239, 68, 68, 0.45); font-weight: 900; }
+
+/* Code Boxes */
+.code-box {
+  background: var(--bg-card);
+  border: 1px solid var(--border-soft);
+  border-radius: 8px;
+  padding: 0.85rem 1rem;
+  font-family: var(--font-mono);
+  font-size: 0.82rem;
+  line-height: 1.6;
+  white-space: pre-wrap;
+  word-break: break-word;
+  max-height: 380px;
+  overflow-y: auto;
+}

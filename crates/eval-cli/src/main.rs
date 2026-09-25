@@ -93,6 +93,21 @@ enum Commands {
         #[arg(required = true, num_args = 1..)]
         result_files: Vec<String>,
     },
+
+    /// Launch the interactive Vue 3 visualization dashboard server
+    Dashboard {
+        /// Port to bind the dashboard web server (default: 5173)
+        #[arg(short = 'p', long = "port", default_value_t = 5173)]
+        port: u16,
+
+        /// Path to a results JSON file or results/ directory to display
+        #[arg(short = 'r', long = "results")]
+        results: Option<String>,
+
+        /// Path to custom web/dist directory
+        #[arg(long = "web-dist")]
+        web_dist: Option<String>,
+    },
 }
 
 #[tokio::main]
@@ -142,6 +157,13 @@ async fn main() -> Result<()> {
         }
         Commands::Compare { result_files } => {
             commands::compare::execute_compare(result_files)?;
+        }
+        Commands::Dashboard {
+            port,
+            results,
+            web_dist,
+        } => {
+            commands::dashboard::execute(port, results, web_dist).await?;
         }
     }
 
