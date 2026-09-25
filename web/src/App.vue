@@ -25,6 +25,21 @@
         </div>
 
         <div class="header-actions">
+          <!-- Live Run History Selector (from Rust /api/runs) -->
+          <div v-if="availableRuns.length > 0" class="run-history-picker">
+            <label class="picker-label">历史报告:</label>
+            <select
+              v-model="selectedRunFile"
+              class="run-select"
+              @change="handleRunFileChange"
+              title="切换加载历史评测报告"
+            >
+              <option v-for="r in availableRuns" :key="r.filename" :value="r.filename">
+                {{ r.timestamp }} ({{ r.models.join(', ') || r.size_human }})
+              </option>
+            </select>
+          </div>
+
           <!-- Hidden File Input -->
           <input
             ref="fileInputRef"
@@ -34,17 +49,17 @@
             @change="handleFileInput"
           />
 
-          <button class="btn btn-header" @click="triggerFileInput">
-            📂 上传评测报告 (JSON)
+          <button class="btn btn-header" @click="triggerFileInput" title="上传本地测试结果 JSON">
+            📂 上传报告
           </button>
 
-          <button class="btn btn-header btn-ghost" @click="loadDefaultDataset" title="重新载入默认评测集">
-            🔄 恢复样例数据
+          <button class="btn btn-header btn-ghost" @click="loadDefaultDataset" title="重新载入默认 1009 题样例">
+            🔄 重置样例
           </button>
 
           <!-- Theme Toggle -->
           <button class="btn-theme-toggle" @click="toggleTheme" :title="'切换至 ' + (currentTheme === 'dark' ? '暖色浅色' : '极客深色') + ' 模式'">
-            {{ currentTheme === 'dark' ? '☀️ 暖色浅色' : '🌙 极客深色' }}
+            {{ currentTheme === 'dark' ? '☀️ 浅色' : '🌙 深色' }}
           </button>
         </div>
       </div>
@@ -158,6 +173,15 @@
 
           <button
             class="tab-btn"
+            :class="{ active: currentTab === 'pareto' }"
+            @click="currentTab = 'pareto'"
+          >
+            <span class="tab-icon">📈</span>
+            <span class="tab-title">能效与帕累托前沿</span>
+          </button>
+
+          <button
+            class="tab-btn"
             :class="{ active: currentTab === 'inspector' }"
             @click="currentTab = 'inspector'"
           >
@@ -172,6 +196,15 @@
           >
             <span class="tab-icon">⚔️</span>
             <span class="tab-title">双模型对决擂台</span>
+          </button>
+
+          <button
+            class="tab-btn"
+            :class="{ active: currentTab === 'diagnostics' }"
+            @click="currentTab = 'diagnostics'"
+          >
+            <span class="tab-icon">💡</span>
+            <span class="tab-title">自诊断与洞见</span>
           </button>
         </div>
 
@@ -196,7 +229,12 @@
             <TierBreakdown :models="enrichedModels" />
           </div>
 
-          <!-- 4. Case Inspector -->
+          <!-- 4. Pareto Frontier -->
+          <div v-show="currentTab === 'pareto'">
+            <ParetoAnalysis :models="enrichedModels" />
+          </div>
+
+          <!-- 5. Case Inspector -->
           <div v-show="currentTab === 'inspector'">
             <CaseInspector
               :models="enrichedModels"
@@ -204,9 +242,14 @@
             />
           </div>
 
-          <!-- 5. Head to Head Battle Arena -->
+          <!-- 6. Head to Head Battle Arena -->
           <div v-show="currentTab === 'battle'">
             <ModelComparison :models="enrichedModels" />
+          </div>
+
+          <!-- 7. Diagnostics -->
+          <div v-show="currentTab === 'diagnostics'">
+            <DiagnosticInsights :models="enrichedModels" />
           </div>
         </div>
       </div>
@@ -231,8 +274,10 @@ import { ref, computed, onMounted } from 'vue';
 import LeaderboardTable from './components/LeaderboardTable.vue';
 import RadarAnalysis from './components/RadarAnalysis.vue';
 import TierBreakdown from './components/TierBreakdown.vue';
+import ParetoAnalysis from './components/ParetoAnalysis.vue';
 import CaseInspector from './components/CaseInspector.vue';
 import ModelComparison from './components/ModelComparison.vue';
+import DiagnosticInsights from './components/DiagnosticInsights.vue';
 import { computeHeadToHeadElo } from './utils/elo';
 import { enrichModelSummary } from './utils/benchmark';
 
@@ -258,6 +303,10 @@ const isLoading = ref(true);
 const errorMessage = ref('');
 const isDragging = ref(false);
 const fileInputRef = ref(null);
+
+// Available historical runs from Rust backend
+const availableRuns = ref([]);
+const selectedRunFile = ref('');
 
 // Processed models with Elo and Tiers
 const enrichedModels = computed(() => {
@@ -387,6 +436,41 @@ async function loadDefaultDataset() {
   }
 }
 
+async function fetchAvailableRuns() {
+  try {
+    const res = await fetch('/api/runs');
+    if (res.ok) {
+      const runs = await res.json();
+      if (Array.isArray(runs) && runs.length > 0) {
+        availableRuns.value = runs;
+        selectedRunFile.value = runs[0].filename;
+      }
+    }
+  } catch (e) {
+    // Running in static preview without Rust backend, gracefully ignore
+  }
+}
+
+async function handleRunFileChange() {
+  if (!selectedRunFile.value) return;
+  isLoading.value = true;
+  try {
+    const res = await fetch(`/api/runs/${selectedRunFile.value}`);
+    if (!res.ok) {
+      throw new Error(`HTTP ${res.status} 加载历史文件失败`);
+    }
+    const data = await res.json();
+    rawModels.value = Array.isArray(data) ? data : (data.summaries || [data]);
+    if (rawModels.value.length > 0) {
+      selectedModelForInspector.value = rawModels.value[0].model_id;
+    }
+  } catch (err) {
+    errorMessage.value = err.message;
+  } finally {
+    isLoading.value = false;
+  }
+}
+
 onMounted(() => {
   // Load saved theme
   try {
@@ -398,6 +482,7 @@ onMounted(() => {
   } catch (e) {}
 
   loadDefaultDataset();
+  fetchAvailableRuns();
 });
 </script>
 
@@ -529,6 +614,35 @@ onMounted(() => {
   display: flex;
   align-items: center;
   gap: 0.6rem;
+  flex-wrap: wrap;
+}
+
+.run-history-picker {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  background: var(--bg-card);
+  border: 1px solid var(--border-strong);
+  border-radius: 8px;
+  padding: 0.2rem 0.6rem;
+}
+
+.picker-label {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  font-weight: 700;
+}
+
+.run-select {
+  background: transparent;
+  border: none;
+  color: var(--text-heading);
+  font-size: 0.78rem;
+  font-family: var(--font-sans);
+  font-weight: 600;
+  outline: none;
+  cursor: pointer;
+  max-width: 200px;
 }
 
 .btn {

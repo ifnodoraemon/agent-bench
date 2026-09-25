@@ -290,10 +290,12 @@ impl BenchmarkOrchestrator {
             }
 
             let latency_ms = start_time.elapsed().as_millis() as u64;
-            let final_output = trajectory
+            let raw_output = trajectory
                 .final_answer
                 .clone()
                 .unwrap_or_else(|| "[No final text returned]".to_string());
+            let (extracted_reasoning, clean_output) =
+                eval_core::model::extractor::ToolCallExtractor::extract_reasoning_and_clean_text(&raw_output);
 
             return Ok(CaseResult {
                 test_case_id: test_case.id,
@@ -310,8 +312,8 @@ impl BenchmarkOrchestrator {
                 prompt_tokens: trajectory.prompt_tokens,
                 completion_tokens: trajectory.completion_tokens,
                 cost_usd: trajectory.estimated_cost_usd,
-                model_output: final_output,
-                reasoning_content: None,
+                model_output: clean_output,
+                reasoning_content: extracted_reasoning,
                 error: None,
             });
         }
