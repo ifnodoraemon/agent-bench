@@ -8,10 +8,13 @@ pub trait SimulatedEnvironment: Send + Sync {
     fn reset(&self);
 }
 
+type DbRecord = HashMap<String, String>;
+type DbTable = Vec<DbRecord>;
+
 #[derive(Clone)]
 pub struct MockSystemEnvironment {
     files: Arc<Mutex<HashMap<String, String>>>,
-    db_tables: Arc<Mutex<HashMap<String, Vec<HashMap<String, String>>>>>,
+    db_tables: Arc<Mutex<HashMap<String, DbTable>>>,
     search_knowledge: Arc<Mutex<HashMap<String, String>>>,
     error_injections: Arc<Mutex<HashMap<String, (usize, String)>>>, // tool_name -> (fail_count_remaining, error_message)
 }

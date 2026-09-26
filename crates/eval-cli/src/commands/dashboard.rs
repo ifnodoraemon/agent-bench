@@ -73,6 +73,9 @@ pub struct BenchmarkRunRequest {
     pub limit: Option<usize>,
     pub model: Option<String>,
     pub concurrency: Option<usize>,
+    pub base_url: Option<String>,
+    pub api_key: Option<String>,
+    pub protocol: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -283,6 +286,9 @@ pub async fn execute(
                     limit: Some(10),
                     model: Some("mock-pro".to_string()),
                     concurrency: Some(4),
+                    base_url: None,
+                    api_key: None,
+                    protocol: None,
                 };
 
                 if let Some(pos) = req_str.find("\r\n\r\n") {
@@ -412,10 +418,10 @@ pub async fn execute(
                 let mut cfg = ModelConfig::new(&model_name, proto.to_string(), &model_name);
                 cfg.protocol = proto;
                 if let Some(url) = req_body.base_url {
-                    cfg.base_url = Some(url);
+                    cfg.base_url = Some(crate::config::resolve_env_str(&url));
                 }
                 if let Some(key) = req_body.api_key {
-                    cfg.api_key = Some(key);
+                    cfg.api_key = Some(crate::config::resolve_env_str(&key));
                 }
 
                 let resp_bytes = match create_client(cfg) {
@@ -480,10 +486,10 @@ pub async fn execute(
                 let mut cfg = ModelConfig::new(&model_name, proto.to_string(), &model_name);
                 cfg.protocol = proto;
                 if let Some(url) = req_body.base_url {
-                    cfg.base_url = Some(url);
+                    cfg.base_url = Some(crate::config::resolve_env_str(&url));
                 }
                 if let Some(key) = req_body.api_key {
-                    cfg.api_key = Some(key);
+                    cfg.api_key = Some(crate::config::resolve_env_str(&key));
                 }
 
                 let resp_bytes = match create_client(cfg) {
@@ -586,7 +592,7 @@ async fn run_live_benchmark_task(
     let mut combined_dataset = Dataset::new("live_benchmark");
     let mut files = Vec::new();
     let datasets_dir = resolve_datasets_dir();
-    if let Ok(_) = collect_jsonl_files(&datasets_dir, &mut files) {
+    if collect_jsonl_files(&datasets_dir, &mut files).is_ok() {
         for f in files {
             if let Ok(ds) = DatasetLoader::load_from_jsonl(&f) {
                 combined_dataset.test_cases.extend(ds.test_cases);
@@ -638,12 +644,54 @@ async fn run_live_benchmark_task(
         st.message = Some(format!("开始评测，共 {} 题 (并发: {})", total_cases, concurrency));
     }
 
-    // 2. Create model client
-    let mut model_config = match model_choice.as_str() {
-        "mock-fast" => ModelConfig::new("mock-fast", "mock", "Mock-Fast-v1"),
-        _ => ModelConfig::new("mock-pro", "mock", "Mock-Pro-v1"),
+    // 2. Create model client (check config file first, then request params, strictly NO blind fallback to mock)
+    let mut resolved_config = None;
+    for cfg_candidate in &["eval_config.toml", "agent_bench.toml", "eval_gpustack.toml", "eval_config.example.toml"] {
+        if Path::new(cfg_candidate).exists() {
+            if let Ok(cfg_file) = crate::config::ConfigFile::load_from_file(cfg_candidate) {
+                if let Some(prof) = cfg_file.models.into_iter().find(|m| m.id == model_choice || m.model_name == model_choice) {
+                    resolved_config = Some(prof.to_model_config());
+                    break;
+                }
+            }
+        }
+    }
+
+    let mut model_config = match resolved_config {
+        Some(c) => c,
+        None => {
+            if model_choice.starts_with("mock") {
+                let mut cfg = ModelConfig::new(&model_choice, "mock", &model_choice);
+                cfg.protocol = ApiProtocol::Mock;
+                cfg
+            } else {
+                let proto = if let Some(ref p_str) = req.protocol {
+                    std::str::FromStr::from_str(p_str).unwrap_or(ApiProtocol::OpenAiChat)
+                } else if model_choice.contains("claude") {
+                    ApiProtocol::Anthropic
+                } else if model_choice.contains("gemini") {
+                    ApiProtocol::Gemini
+                } else {
+                    ApiProtocol::OpenAiChat
+                };
+                let mut cfg = ModelConfig::new(&model_choice, proto.to_string(), &model_choice);
+                cfg.protocol = proto;
+                cfg
+            }
+        }
     };
-    model_config.protocol = ApiProtocol::Mock;
+
+    if let Some(url) = req.base_url {
+        model_config.base_url = Some(crate::config::resolve_env_str(&url));
+    }
+    if let Some(key) = req.api_key {
+        model_config.api_key = Some(crate::config::resolve_env_str(&key));
+    }
+    if let Some(proto_str) = req.protocol {
+        if let Ok(p) = std::str::FromStr::from_str(&proto_str) {
+            model_config.protocol = p;
+        }
+    }
 
     let client = match create_client(model_config) {
         Ok(c) => c,

@@ -6,10 +6,12 @@ use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
+type MockResponseEntry = (String, Option<Vec<ToolCall>>);
+
 #[derive(Clone)]
 pub struct MockClient {
     config: ModelConfig,
-    responses: Arc<Mutex<HashMap<String, (String, Option<Vec<ToolCall>>)>>>,
+    responses: Arc<Mutex<HashMap<String, MockResponseEntry>>>,
     default_response: String,
     simulated_delay: Duration,
 }

@@ -8,7 +8,7 @@ impl MarkdownReporter {
         let now = Local::now().format("%Y-%m-%d %H:%M:%S").to_string();
         let mut md = String::new();
 
-        md.push_str(&format!("# 🏆 LLM & Agent Benchmark Report\n\n"));
+        md.push_str("# 🏆 LLM & Agent Benchmark Report\n\n");
         md.push_str(&format!("*Generated at: {}*\n\n", now));
 
         md.push_str("## 1. Overall Leaderboard\n\n");

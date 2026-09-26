@@ -184,7 +184,7 @@ impl ModelVerifier {
                     "probe_strawberry" | "probe_bat_ball" => risk_tags.push("旗舰断崖题翻车".to_string()),
                     "probe_precision_float" => risk_tags.push("疑似低精度量化截断".to_string()),
                     "probe_riddle_thinking" => {
-                        if target_lower.contains("r1") || target_lower.contains("qwq") || target_lower.contains("o1") {
+                        if target_lower.contains("r1") || target_lower.contains("qwq") || target_lower.contains("o1") || target_lower.contains("o3") || target_lower.contains("reason") || target_lower.contains("thinking") {
                             risk_tags.push("缺失推理思维链签名".to_string());
                         }
                     }
@@ -262,6 +262,64 @@ impl ModelVerifier {
     }
 }
 
+struct IdentityRule {
+    target_match: &'static [&'static str],
+    valid_keywords: &'static [&'static str],
+    invalid_keywords: &'static [&'static str],
+    vendor_label: &'static str,
+}
+
+static IDENTITY_RULES: &[IdentityRule] = &[
+    IdentityRule {
+        target_match: &["deepseek"],
+        valid_keywords: &["deepseek", "深度求索"],
+        invalid_keywords: &["openai", "anthropic", "qwen", "meta", "google"],
+        vendor_label: "DeepSeek / 深度求索",
+    },
+    IdentityRule {
+        target_match: &["claude"],
+        valid_keywords: &["anthropic", "claude"],
+        invalid_keywords: &["openai", "deepseek", "qwen", "google"],
+        vendor_label: "Anthropic / Claude",
+    },
+    IdentityRule {
+        target_match: &["gpt", "o1", "o3"],
+        valid_keywords: &["openai", "chatgpt"],
+        invalid_keywords: &["anthropic", "deepseek", "qwen", "meta"],
+        vendor_label: "OpenAI",
+    },
+    IdentityRule {
+        target_match: &["grok"],
+        valid_keywords: &["xai", "grok", "x.ai", "elon musk"],
+        invalid_keywords: &["openai", "anthropic", "deepseek", "qwen"],
+        vendor_label: "xAI / Grok",
+    },
+    IdentityRule {
+        target_match: &["qwen", "qwq"],
+        valid_keywords: &["alibab", "qwen", "通义千问", "qwq"],
+        invalid_keywords: &["openai", "anthropic", "deepseek"],
+        vendor_label: "阿里通义千问 / Qwen",
+    },
+    IdentityRule {
+        target_match: &["gemini"],
+        valid_keywords: &["google", "deepmind", "gemini"],
+        invalid_keywords: &["openai", "anthropic", "deepseek"],
+        vendor_label: "Google / DeepMind",
+    },
+    IdentityRule {
+        target_match: &["llama"],
+        valid_keywords: &["meta", "llama", "facebook"],
+        invalid_keywords: &["openai", "anthropic", "deepseek"],
+        vendor_label: "Meta / Llama",
+    },
+    IdentityRule {
+        target_match: &["kimi", "moonshot"],
+        valid_keywords: &["moonshot", "kimi", "月之暗面"],
+        invalid_keywords: &["openai", "anthropic", "deepseek", "qwen"],
+        vendor_label: "Moonshot AI / Kimi",
+    },
+];
+
 fn evaluate_probe(
     probe_id: &str,
     text: &str,
@@ -272,30 +330,16 @@ fn evaluate_probe(
 
     match probe_id {
         "probe_identity" => {
-            // Identity probe check
-            if target_lower.contains("deepseek") {
-                if lower.contains("deepseek") || lower.contains("深度求索") {
-                    return (true, "成功匹配到 DeepSeek / 深度求索 原生创作者声明".to_string());
-                } else if lower.contains("openai") || lower.contains("anthropic") || lower.contains("qwen") {
-                    return (false, "严重警报：标称为 DeepSeek，但自称是其他厂商模型！".to_string());
+            if let Some(rule) = IDENTITY_RULES.iter().find(|r| r.target_match.iter().any(|&m| target_lower.contains(m))) {
+                if rule.valid_keywords.iter().any(|&k| lower.contains(k)) {
+                    return (true, format!("成功匹配到 {} 原生创作者声明", rule.vendor_label));
                 }
-            } else if target_lower.contains("claude") {
-                if lower.contains("anthropic") || lower.contains("claude") {
-                    return (true, "成功匹配到 Anthropic / Claude 原生认知".to_string());
-                } else if lower.contains("openai") || lower.contains("deepseek") {
-                    return (false, "严重警报：标称为 Claude，但自称是其他厂商模型！".to_string());
+                if rule.invalid_keywords.iter().any(|&k| lower.contains(k)) {
+                    return (false, format!("严重警报：标称为 {}，但自称是其他厂商模型！", rule.vendor_label));
                 }
-            } else if target_lower.contains("gpt") || target_lower.contains("o1") {
-                if lower.contains("openai") || lower.contains("chatgpt") {
-                    return (true, "成功匹配到 OpenAI 原生认知".to_string());
-                }
-            } else if target_lower.contains("qwen") {
-                if lower.contains("alibab") || lower.contains("qwen") || lower.contains("通义千问") {
-                    return (true, "成功匹配到 阿里通义千问 原生认知".to_string());
-                }
+                return (false, format!("未检测到 {} 的原生身份声明", rule.vendor_label));
             }
 
-            // Fallback for general models or mock
             if lower.contains("mock") {
                 (true, "Mock 模拟模型环境响应自洽".to_string())
             } else if lower.len() > 5 {

@@ -414,7 +414,7 @@ impl BenchmarkOrchestrator {
                 }
             }
             EvaluationType::Regex => {
-                let regex_eval = RegexEvaluator::default();
+                let regex_eval = RegexEvaluator;
                 let rule_res = eval_core::evaluators::Evaluator::evaluate(&regex_eval, &test_case, &model_resp).await?;
                 if rule_res.passed && rule_res.score >= 1.0 {
                     rule_res
@@ -426,7 +426,7 @@ impl BenchmarkOrchestrator {
                 }
             }
             EvaluationType::JsonSchema => {
-                let schema_eval = JsonSchemaEvaluator::default();
+                let schema_eval = JsonSchemaEvaluator;
                 let rule_res = eval_core::evaluators::Evaluator::evaluate(&schema_eval, &test_case, &model_resp).await?;
                 if rule_res.passed && rule_res.score >= 1.0 {
                     rule_res

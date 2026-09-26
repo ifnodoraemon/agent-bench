@@ -60,18 +60,22 @@ pub struct ModelProfile {
     pub price_per_output_million: Option<f64>,
 }
 
+/// Resolve string with optional env: prefix to actual environment variable value
+pub fn resolve_env_str(val: &str) -> String {
+    load_dotenv_if_exists();
+    if let Some(var_name) = val.strip_prefix("env:") {
+        std::env::var(var_name).unwrap_or_else(|_| val.to_string())
+    } else {
+        val.to_string()
+    }
+}
+
 impl ModelProfile {
     pub fn to_model_config(&self) -> ModelConfig {
         load_dotenv_if_exists();
 
-        let resolved_api_key = self.api_key.as_ref().map(|k| {
-            if k.starts_with("env:") {
-                let var_name = &k[4..];
-                std::env::var(var_name).unwrap_or_else(|_| k.clone())
-            } else {
-                k.clone()
-            }
-        });
+        let resolved_api_key = self.api_key.as_deref().map(resolve_env_str);
+        let resolved_base_url = self.base_url.as_deref().map(resolve_env_str);
 
         // Determine protocol
         let protocol = if let Some(proto) = self.protocol {
@@ -89,7 +93,7 @@ impl ModelProfile {
             protocol,
             provider: provider_name,
             model_name: self.model_name.clone(),
-            base_url: self.base_url.clone(),
+            base_url: resolved_base_url,
             api_key: resolved_api_key,
             custom_headers: self.headers.clone(),
             temperature: self.temperature,

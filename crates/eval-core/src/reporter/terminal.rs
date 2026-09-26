@@ -123,7 +123,7 @@ impl TerminalReporter {
 
         output.push_str("📁 === CATEGORY BREAKDOWN ===\n\n");
         output.push_str(&cat_table.to_string());
-        output.push_str("\n");
+        output.push('\n');
 
         output
     }

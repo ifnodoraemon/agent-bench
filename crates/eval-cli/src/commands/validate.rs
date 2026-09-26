@@ -64,17 +64,13 @@ pub fn execute_validate(dataset_paths: Vec<String>) -> Result<()> {
                                 errors += 1;
                             }
                         }
-                        EvaluationType::JsonSchema => {
-                            if tc.schema.is_none() {
-                                println!("  ⚠️ Case #{} ({}): JsonSchema requires schema definition", idx + 1, tc.id);
-                                errors += 1;
-                            }
+                        EvaluationType::JsonSchema if tc.schema.is_none() => {
+                            println!("  ⚠️ Case #{} ({}): JsonSchema requires schema definition", idx + 1, tc.id);
+                            errors += 1;
                         }
-                        EvaluationType::CodeExecution => {
-                            if tc.test_code.is_none() {
-                                println!("  ⚠️ Case #{} ({}): CodeExecution requires test_code", idx + 1, tc.id);
-                                errors += 1;
-                            }
+                        EvaluationType::CodeExecution if tc.test_code.is_none() => {
+                            println!("  ⚠️ Case #{} ({}): CodeExecution requires test_code", idx + 1, tc.id);
+                            errors += 1;
                         }
                         _ => {}
                     }

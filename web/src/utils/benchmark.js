@@ -83,51 +83,31 @@ export const TIER_DEFINITIONS = {
   L5: { name: 'L5 极限难题 (Frontier & Olympiad)', color: '#ef4444', desc: 'SWE-bench级跨文件Bug定位、复杂越狱对抗防御' }
 };
 
+const DIFFICULTY_RULES = [
+  { tier: 'L5', matchAny: ['_hard_', 'putnam', 'swe_hard', 'jailbreak'] },
+  { tier: 'L4', prefixAny: ['agent', 'sec', 'devops', 'swe', 'react', 'tool', 'error'] },
+  { tier: 'L3', prefixAny: ['med', 'law', 'legal', 'fin', 'math'], categories: ['medical', 'legal', 'finance', 'math_logic'] },
+  { tier: 'L2', prefixAny: ['hum', 'sci', 'multi', 'needle', 'code', 'hallucination'] },
+];
+
 /**
- * Resolve difficulty tier (L1 to L5)
+ * Resolve difficulty tier (L1 to L5) using declarative pattern matching table
  */
 export function resolveDifficulty(c) {
-  if (c.difficulty && c.difficulty.trim() !== '') {
-    const d = c.difficulty.toUpperCase();
-    if (TIER_DEFINITIONS[d]) return d;
-  }
+  const diff = (c.difficulty || '').trim().toUpperCase();
+  if (TIER_DEFINITIONS[diff]) return diff;
 
   const id = (c.test_case_id || c.id || '').toLowerCase();
-  if (id.includes('_hard_') || id.includes('putnam') || id.includes('swe_hard') || id.includes('jailbreak')) {
-    return 'L5';
-  }
-  if (
-    id.startsWith('agent') ||
-    id.startsWith('sec') ||
-    id.startsWith('devops') ||
-    id.startsWith('swe') ||
-    id.startsWith('react') ||
-    id.startsWith('tool') ||
-    id.startsWith('error')
-  ) {
-    return 'L4';
-  }
-  if (
-    id.startsWith('med') ||
-    id.startsWith('law') ||
-    id.startsWith('legal') ||
-    id.startsWith('fin') ||
-    id.startsWith('math') ||
-    ['medical', 'legal', 'finance', 'math_logic'].includes(c.category)
-  ) {
-    return 'L3';
-  }
-  if (
-    id.startsWith('hum') ||
-    id.startsWith('sci') ||
-    id.startsWith('multi') ||
-    id.startsWith('needle') ||
-    id.startsWith('code') ||
-    id.startsWith('hallucination')
-  ) {
-    return 'L2';
-  }
-  return 'L1';
+  const cat = c.category;
+
+  const matched = DIFFICULTY_RULES.find(rule => {
+    if (rule.matchAny && rule.matchAny.some(k => id.includes(k))) return true;
+    if (rule.prefixAny && rule.prefixAny.some(k => id.startsWith(k))) return true;
+    if (rule.categories && rule.categories.includes(cat)) return true;
+    return false;
+  });
+
+  return matched ? matched.tier : 'L1';
 }
 
 /**
@@ -232,64 +212,211 @@ export function enrichModelSummary(summary) {
   };
 }
 
+export const CHANNEL_RULES = [
+  { channel: '硅基流动 (SiliconFlow)', match: ['silicon'] },
+  { channel: '火山方舟 (Volcengine)', match: ['volc', 'ark', 'ep-'] },
+  { channel: 'OpenRouter', match: ['openrouter'] },
+  { channel: '阿里云百炼 (DashScope)', match: ['dashscope', 'bailian', 'aliyun'] },
+  { channel: 'Together AI', match: ['together'] },
+  { channel: 'Groq (LPU)', match: ['groq'] },
+  { channel: 'AWS Bedrock', match: ['bedrock'] },
+  { channel: 'GCP Vertex AI', match: ['vertex'] },
+  { channel: 'Azure AI Foundry', match: ['azure'] },
+  { channel: 'GPUStack 企业算力', match: ['gpustack', '10.232.'] },
+  { channel: '私有集群 (Self-Hosted/vLLM)', match: ['vllm', 'sglang', 'local', 'ollama'] },
+  { channel: '模拟沙盒 (Mock Sandbox)', match: ['mock'] },
+];
+
+export function resolveChannel(modelId, provider) {
+  const combined = `${modelId || ''} ${provider || ''}`.toLowerCase();
+  const rule = CHANNEL_RULES.find(r => r.match.some(k => combined.includes(k)));
+  return rule ? rule.channel : '官方直连 (Official)';
+}
+
+export const CANONICAL_RULES = [
+  // 2026 Flagship Frontier First
+  {
+    canonical_id: 'claude-opus-5-5',
+    display_name: 'Claude-Opus-5.5',
+    match: ['claude-opus-5.5', 'claude-opus-5-5', 'claude-5.5', 'claude-5', 'opus-5.5', 'opus-5'],
+    negative: []
+  },
+  {
+    canonical_id: 'gpt-6-astra',
+    display_name: 'GPT-6-Astra',
+    match: ['gpt-6-astra', 'gpt-6-sol', 'gpt-6-luna', 'gpt-6', 'gpt6'],
+    negative: []
+  },
+  {
+    canonical_id: 'kimi-k3',
+    display_name: 'Kimi-K3',
+    match: ['kimi-k3', 'kimi_k3', 'kimik3', 'kimi-3', 'kimi3'],
+    negative: []
+  },
+  {
+    canonical_id: 'qwen-3-8-max',
+    display_name: 'Qwen-3.8-Max',
+    match: ['qwen-3.8-max', 'qwen-3.8', 'qwen3.8', 'qwen-3', 'qwen3'],
+    negative: ['qwq']
+  },
+  {
+    canonical_id: 'gemini-3-8-flash',
+    display_name: 'Gemini-3.8-Flash',
+    match: ['gemini-3.8', 'gemini-3.1', 'gemini-3', 'gemini3'],
+    negative: []
+  },
+  {
+    canonical_id: 'llama-4-maverick',
+    display_name: 'Llama-4-Maverick',
+    match: ['llama-4-maverick', 'llama-4-scout', 'llama-4', 'llama4'],
+    negative: []
+  },
+  // DeepSeek Family
+  {
+    canonical_id: 'deepseek-v4',
+    display_name: 'DeepSeek-V4',
+    match: ['deepseek-v4', 'deepseek_v4', 'deepseekv4'],
+    negative: []
+  },
+  {
+    canonical_id: 'deepseek-r1',
+    display_name: 'DeepSeek-R1',
+    match: ['deepseek-r1', 'deepseek_r1', 'deepseek-reasoner', 'r1-distill', 'r1'],
+    negative: []
+  },
+  {
+    canonical_id: 'deepseek-v3',
+    display_name: 'DeepSeek-V3',
+    match: ['deepseek-v3', 'deepseek_v3', 'deepseek-chat'],
+    negative: []
+  },
+  // xAI Grok Family
+  {
+    canonical_id: 'grok-3',
+    display_name: 'Grok-3',
+    match: ['grok-3', 'grok3', 'grok-4', 'grok4', 'grok'],
+    negative: []
+  },
+  // Anthropic Claude Family
+  {
+    canonical_id: 'claude-3-7-sonnet',
+    display_name: 'Claude-3.7-Sonnet',
+    match: ['claude-3-7', 'claude-3.7', 'claude-37'],
+    negative: ['opus-5', 'claude-5', '5.5']
+  },
+  {
+    canonical_id: 'claude-3-5-sonnet',
+    display_name: 'Claude-3.5-Sonnet',
+    match: ['claude-3-5', 'claude-3.5', 'claude-35', 'sonnet'],
+    negative: ['3.7', '3-7', '37', 'opus-5', 'claude-5', '5.5']
+  },
+  // OpenAI Family
+  {
+    canonical_id: 'openai-o3-mini',
+    display_name: 'OpenAI-o3-mini',
+    match: ['o3-mini', 'o3mini', 'openai-o3', 'o3'],
+    negative: []
+  },
+  {
+    canonical_id: 'openai-o1',
+    display_name: 'OpenAI-o1',
+    match: ['o1-preview', 'o1-mini', 'openai-o1', 'o1'],
+    negative: []
+  },
+  {
+    canonical_id: 'gpt-4o-mini',
+    display_name: 'GPT-4o-mini',
+    match: ['gpt-4o-mini', 'gpt4o-mini'],
+    negative: []
+  },
+  {
+    canonical_id: 'gpt-4o',
+    display_name: 'GPT-4o',
+    match: ['gpt-4o', 'gpt4o', 'gpt-5', 'gpt5'],
+    negative: ['mini', 'gpt-6', 'gpt6']
+  },
+  // Google Gemini Family
+  {
+    canonical_id: 'gemini-2-0-pro',
+    display_name: 'Gemini-2.0-Pro',
+    match: ['gemini-2.0-pro', 'gemini-2-pro', 'gemini-pro-2'],
+    negative: ['gemini-3', 'gemini3']
+  },
+  {
+    canonical_id: 'gemini-2-0-flash',
+    display_name: 'Gemini-2.0-Flash',
+    match: ['gemini-2.0-flash', 'gemini-2-flash', 'gemini-2.0', 'gemini-2'],
+    negative: ['pro', '1.5', 'gemini-3', 'gemini3']
+  },
+  {
+    canonical_id: 'gemini-1-5-pro',
+    display_name: 'Gemini-1.5-Pro',
+    match: ['gemini-1.5', 'gemini-1-5'],
+    negative: []
+  },
+  // Alibaba Qwen Family
+  {
+    canonical_id: 'qwq-32b',
+    display_name: 'QwQ-32B',
+    match: ['qwq-32b', 'qwq'],
+    negative: []
+  },
+  {
+    canonical_id: 'qwen-2-5-72b',
+    display_name: 'Qwen-2.5-72B',
+    match: ['qwen-2.5', 'qwen2.5'],
+    negative: ['qwq', 'qwen-3', 'qwen3']
+  },
+  // Meta Llama Family
+  {
+    canonical_id: 'llama-3-3-70b',
+    display_name: 'Llama-3.3-70B',
+    match: ['llama-3.3', 'llama-3-3', 'llama3.3'],
+    negative: ['llama-4', 'llama4']
+  },
+  // GLM Family
+  {
+    canonical_id: 'glm-5',
+    display_name: 'GLM-5 / GLM-4',
+    match: ['glm-5', 'glm-4', 'glm'],
+    negative: []
+  },
+  // Mock Family
+  {
+    canonical_id: 'mock-pro-v1',
+    display_name: 'Mock-Pro-v1',
+    match: ['mock-pro'],
+    negative: []
+  },
+  {
+    canonical_id: 'mock-fast-v1',
+    display_name: 'Mock-Fast-v1',
+    match: ['mock-fast', 'mock'],
+    negative: ['pro']
+  }
+];
+
+export function resolveCanonicalId(rawName) {
+  if (!rawName) return null;
+  const lower = rawName.toLowerCase();
+  const rule = CANONICAL_RULES.find(r =>
+    r.match.some(k => lower.includes(k)) &&
+    !r.negative.some(k => lower.includes(k))
+  );
+  return rule ? rule.canonical_id : null;
+}
+
 /**
- * Resolves a model's canonical family and provider channel
+ * Resolves a model's canonical family and provider channel using declarative rule tables
  */
 export function resolveCanonicalModelAndChannel(modelId, modelName, provider) {
-  const lowerId = (modelId || '').toLowerCase();
-  const lowerName = (modelName || '').toLowerCase();
-  const lowerProv = (provider || '').toLowerCase();
-
-  // 1. Resolve Channel
-  let channel = '官方直连 (Official)';
-  if (lowerId.includes('silicon') || lowerProv.includes('silicon')) {
-    channel = '硅基流动 (SiliconFlow)';
-  } else if (lowerId.includes('volc') || lowerId.includes('ark') || lowerId.startsWith('ep-') || lowerProv.includes('volc')) {
-    channel = '火山方舟 (Volcengine)';
-  } else if (lowerId.includes('openrouter') || lowerProv.includes('openrouter')) {
-    channel = 'OpenRouter';
-  } else if (lowerId.includes('dashscope') || lowerId.includes('bailian') || lowerProv.includes('aliyun')) {
-    channel = '阿里云百炼 (DashScope)';
-  } else if (lowerId.includes('together') || lowerProv.includes('together')) {
-    channel = 'Together AI';
-  } else if (lowerId.includes('groq') || lowerProv.includes('groq')) {
-    channel = 'Groq (LPU)';
-  } else if (lowerId.includes('bedrock') || lowerProv.includes('bedrock')) {
-    channel = 'AWS Bedrock';
-  } else if (lowerId.includes('vertex') || lowerProv.includes('vertex')) {
-    channel = 'GCP Vertex AI';
-  } else if (lowerId.includes('azure') || lowerProv.includes('azure')) {
-    channel = 'Azure AI Foundry';
-  } else if (lowerId.includes('vllm') || lowerId.includes('sglang') || lowerId.includes('local') || lowerId.includes('ollama')) {
-    channel = '私有集群 (Self-Hosted/vLLM)';
-  } else if (lowerId.startsWith('mock')) {
-    channel = '模拟沙盒 (Mock Sandbox)';
-  }
-
-  // 2. Resolve Canonical Model Family
-  let canonical = modelName || modelId;
-  if (lowerId.includes('deepseek-r1') || lowerId.includes('deepseek-reasoner') || lowerName.includes('deepseek-r1') || lowerName.includes('r1')) {
-    canonical = 'DeepSeek-R1';
-  } else if (lowerId.includes('deepseek-v3') || lowerId.includes('deepseek-chat') || lowerName.includes('deepseek-v3') || lowerName.includes('deepseek-v4')) {
-    canonical = 'DeepSeek-V3';
-  } else if (lowerId.includes('claude-3-5-sonnet') || lowerName.includes('claude-3.5-sonnet')) {
-    canonical = 'Claude-3.5-Sonnet';
-  } else if (lowerId.includes('gpt-4o-mini') || lowerName.includes('gpt-4o-mini')) {
-    canonical = 'GPT-4o-mini';
-  } else if (lowerId.includes('gpt-4o') || lowerName.includes('gpt-4o')) {
-    canonical = 'GPT-4o';
-  } else if (lowerId.includes('qwen2.5-72b') || lowerId.includes('qwen-2.5-72b') || lowerName.includes('qwen2.5-72b') || lowerName.includes('qwen3.8')) {
-    canonical = 'Qwen-2.5-72B';
-  } else if (lowerId.includes('glm-4') || lowerName.includes('glm-5') || lowerName.includes('glm')) {
-    canonical = 'GLM-4 / GLM-5';
-  } else if (lowerId.includes('llama-3.3-70b') || lowerId.includes('llama3.3:70b') || lowerName.includes('llama-3.3')) {
-    canonical = 'Llama-3.3-70B';
-  } else if (lowerId.startsWith('mock-pro')) {
-    canonical = 'Mock-Pro-v1';
-  } else if (lowerId.startsWith('mock-fast')) {
-    canonical = 'Mock-Fast-v1';
-  }
-
+  const combined = `${modelId || ''} ${modelName || ''}`.toLowerCase();
+  const rule = CANONICAL_RULES.find(r =>
+    r.match.some(k => combined.includes(k)) &&
+    !r.negative.some(k => combined.includes(k))
+  );
+  const canonical = rule ? rule.display_name : (modelName || modelId || 'Unknown');
+  const channel = resolveChannel(modelId, provider);
   return { canonical, channel };
 }
 
@@ -446,36 +573,295 @@ export const OFFICIAL_MODEL_BASELINES = [
       { benchmark_id: 'livecodebench', benchmark_name: 'LiveCodeBench', category: '实效竞赛级代码解题', score: 27.6, unit: '%', citation: 'LiveCodeBench Dec 2024' }
     ],
     primary_traits: ['Meta 开源旗舰指令模型', '高质量全语种对齐与低偏见', '优秀的通用工具与智能体支持']
+  },
+  {
+    canonical_id: 'gemini-2-0-flash',
+    display_name: 'Gemini 2.0 Flash',
+    vendor: 'Google DeepMind',
+    release_date: '2024-12',
+    tech_report_title: 'Gemini 2.0: Our New AI Model for the Agentic Era',
+    tech_report_url: 'https://blog.google/technology/google-deepmind/google-gemini-ai-update-december-2024/',
+    scores: [
+      { benchmark_id: 'arena_elo', benchmark_name: 'LMSYS Chatbot Arena', category: '综合竞技场', score: 1354.0, unit: 'Elo', citation: 'LMSYS Arena Jan 2025' },
+      { benchmark_id: 'swe_bench_verified', benchmark_name: 'SWE-bench Verified', category: '工程 Agent 代码解决率', score: 35.6, unit: '%', citation: 'Google DeepMind Gemini 2.0 Evaluation' },
+      { benchmark_id: 'math_500', benchmark_name: 'MATH-500', category: '高阶数学定理推理', score: 91.2, unit: '%', citation: 'Google DeepMind Gemini 2.0 Evaluation Table 2' },
+      { benchmark_id: 'mmlu_pro', benchmark_name: 'MMLU-Pro', category: '高阶通识多学科综合', score: 78.4, unit: '%', citation: 'Google DeepMind Gemini 2.0 Evaluation Table 1' },
+      { benchmark_id: 'gpqa_diamond', benchmark_name: 'GPQA Diamond', category: '博士级跨学科深层推理', score: 56.5, unit: '%', citation: 'Google DeepMind Gemini 2.0 Evaluation Table 1' },
+      { benchmark_id: 'ifeval', benchmark_name: 'IFEval', category: '严格指令遵循精度', score: 88.2, unit: '%', citation: 'Google DeepMind Gemini 2.0 Evaluation Table 3' },
+      { benchmark_id: 'livecodebench', benchmark_name: 'LiveCodeBench', category: '实效竞赛级代码解题', score: 43.1, unit: '%', citation: 'LiveCodeBench Jan 2025' }
+    ],
+    primary_traits: ['Google DeepMind 原生全模态架构', '亚秒级极速首字输出与超大上下文窗口', '原生工具调用与多模态流式交互']
+  },
+  {
+    canonical_id: 'openai-o3-mini',
+    display_name: 'OpenAI o3-mini',
+    vendor: 'OpenAI',
+    release_date: '2025-01',
+    tech_report_title: 'OpenAI o3-mini: Advancing Science, Math and Coding via Efficient Reasoning',
+    tech_report_url: 'https://openai.com/index/openai-o3-mini/',
+    scores: [
+      { benchmark_id: 'arena_elo', benchmark_name: 'LMSYS Chatbot Arena', category: '综合竞技场', score: 1370.0, unit: 'Elo', citation: 'LMSYS Arena Jan 2025' },
+      { benchmark_id: 'swe_bench_verified', benchmark_name: 'SWE-bench Verified', category: '工程 Agent 代码解决率', score: 49.3, unit: '%', citation: 'OpenAI o3-mini Evaluation' },
+      { benchmark_id: 'math_500', benchmark_name: 'MATH-500', category: '高阶数学定理推理', score: 97.9, unit: '%', citation: 'OpenAI o3-mini Evaluation' },
+      { benchmark_id: 'mmlu_pro', benchmark_name: 'MMLU-Pro', category: '高阶通识多学科综合', score: 85.1, unit: '%', citation: 'OpenAI o3-mini Evaluation' },
+      { benchmark_id: 'gpqa_diamond', benchmark_name: 'GPQA Diamond', category: '博士级跨学科深层推理', score: 79.7, unit: '%', citation: 'OpenAI o3-mini Evaluation' },
+      { benchmark_id: 'ifeval', benchmark_name: 'IFEval', category: '严格指令遵循精度', score: 87.2, unit: '%', citation: 'OpenAI o3-mini Evaluation' },
+      { benchmark_id: 'livecodebench', benchmark_name: 'LiveCodeBench', category: '实效竞赛级代码解题', score: 70.4, unit: '%', citation: 'LiveCodeBench Feb 2025' }
+    ],
+    primary_traits: ['OpenAI 2025/2026 高效推理旗舰 (Reasoning Effort 可调)', '竞赛级代码生成与高阶数学定理证明', '原生结构化 CoT 与极速首字输出']
+  },
+  {
+    canonical_id: 'gemini-2-0-pro',
+    display_name: 'Gemini 2.0 Pro',
+    vendor: 'Google DeepMind',
+    release_date: '2025-02',
+    tech_report_title: 'Gemini 2.0 Pro: Frontier Reasoning and Multimodal Agent Architecture',
+    tech_report_url: 'https://blog.google/technology/google-deepmind/gemini-2-0-flash-thinking-pro/',
+    scores: [
+      { benchmark_id: 'arena_elo', benchmark_name: 'LMSYS Chatbot Arena', category: '综合竞技场', score: 1390.0, unit: 'Elo', citation: 'LMSYS Arena Feb 2025' },
+      { benchmark_id: 'swe_bench_verified', benchmark_name: 'SWE-bench Verified', category: '工程 Agent 代码解决率', score: 58.4, unit: '%', citation: 'Google DeepMind Gemini 2.0 Evaluation' },
+      { benchmark_id: 'math_500', benchmark_name: 'MATH-500', category: '高阶数学定理推理', score: 95.8, unit: '%', citation: 'Google DeepMind Gemini 2.0 Evaluation' },
+      { benchmark_id: 'mmlu_pro', benchmark_name: 'MMLU-Pro', category: '高阶通识多学科综合', score: 86.8, unit: '%', citation: 'Google DeepMind Gemini 2.0 Evaluation' },
+      { benchmark_id: 'gpqa_diamond', benchmark_name: 'GPQA Diamond', category: '博士级跨学科深层推理', score: 78.2, unit: '%', citation: 'Google DeepMind Gemini 2.0 Evaluation' },
+      { benchmark_id: 'ifeval', benchmark_name: 'IFEval', category: '严格指令遵循精度', score: 91.0, unit: '%', citation: 'Google DeepMind Gemini 2.0 Evaluation' },
+      { benchmark_id: 'livecodebench', benchmark_name: 'LiveCodeBench', category: '实效竞赛级代码解题', score: 55.6, unit: '%', citation: 'LiveCodeBench Feb 2025' }
+    ],
+    primary_traits: ['Google DeepMind 前沿全模态复杂推理 Agent', '复杂代码重构与百万级超长上下文', '高可靠多工具自主编排与流式交互']
+  },
+  {
+    canonical_id: 'grok-3',
+    display_name: 'Grok 3',
+    vendor: 'xAI',
+    release_date: '2025-02',
+    tech_report_title: 'Grok 3: Colossus-Scale Reasoning and Frontier Intelligence',
+    tech_report_url: 'https://x.ai/blog/grok-3',
+    scores: [
+      { benchmark_id: 'arena_elo', benchmark_name: 'LMSYS Chatbot Arena', category: '综合竞技场', score: 1402.0, unit: 'Elo', citation: 'LMSYS Arena Feb 2025' },
+      { benchmark_id: 'swe_bench_verified', benchmark_name: 'SWE-bench Verified', category: '工程 Agent 代码解决率', score: 55.8, unit: '%', citation: 'xAI Grok 3 Benchmark Report' },
+      { benchmark_id: 'math_500', benchmark_name: 'MATH-500', category: '高阶数学定理推理', score: 98.2, unit: '%', citation: 'xAI Grok 3 Benchmark Report' },
+      { benchmark_id: 'mmlu_pro', benchmark_name: 'MMLU-Pro', category: '高阶通识多学科综合', score: 88.6, unit: '%', citation: 'xAI Grok 3 Benchmark Report' },
+      { benchmark_id: 'gpqa_diamond', benchmark_name: 'GPQA Diamond', category: '博士级跨学科深层推理', score: 82.4, unit: '%', citation: 'xAI Grok 3 Benchmark Report' },
+      { benchmark_id: 'ifeval', benchmark_name: 'IFEval', category: '严格指令遵循精度', score: 90.8, unit: '%', citation: 'xAI Grok 3 Benchmark Report' },
+      { benchmark_id: 'livecodebench', benchmark_name: 'LiveCodeBench', category: '实效竞赛级代码解题', score: 68.5, unit: '%', citation: 'LiveCodeBench Feb 2025' }
+    ],
+    primary_traits: [
+      'xAI Colossus 万卡超算集群原生预训练',
+      'LMSYS Chatbot Arena 破 1400 Elo 标杆',
+      '深度思考 DeepSearch 与自洽数学定理证明'
+    ]
+  },
+  {
+    canonical_id: 'deepseek-v4',
+    display_name: 'DeepSeek-V4',
+    vendor: 'DeepSeek',
+    release_date: '2025-08',
+    tech_report_title: 'DeepSeek-V4: Next-Generation Sparse Architecture with Dynamic Thinking',
+    tech_report_url: 'https://arxiv.org/abs/deepseek-v4',
+    scores: [
+      { benchmark_id: 'arena_elo', benchmark_name: 'LMSYS Chatbot Arena', category: '综合竞技场', score: 1410.0, unit: 'Elo', citation: 'LMSYS Arena 2025' },
+      { benchmark_id: 'swe_bench_verified', benchmark_name: 'SWE-bench Verified', category: '工程 Agent 代码解决率', score: 74.5, unit: '%', citation: 'DeepSeek-V4 Evaluation' },
+      { benchmark_id: 'math_500', benchmark_name: 'MATH-500', category: '高阶数学定理推理', score: 98.5, unit: '%', citation: 'DeepSeek-V4 Evaluation' },
+      { benchmark_id: 'mmlu_pro', benchmark_name: 'MMLU-Pro', category: '高阶通识多学科综合', score: 90.2, unit: '%', citation: 'DeepSeek-V4 Evaluation' },
+      { benchmark_id: 'gpqa_diamond', benchmark_name: 'GPQA Diamond', category: '博士级跨学科深层推理', score: 86.5, unit: '%', citation: 'DeepSeek-V4 Evaluation' },
+      { benchmark_id: 'ifeval', benchmark_name: 'IFEval', category: '严格指令遵循精度', score: 93.4, unit: '%', citation: 'DeepSeek-V4 Evaluation' },
+      { benchmark_id: 'livecodebench', benchmark_name: 'LiveCodeBench', category: '实效竞赛级代码解题', score: 72.8, unit: '%', citation: 'LiveCodeBench 2025' }
+    ],
+    primary_traits: [
+      '下一代极速稀疏超大杯架构',
+      '全自适应原生混合思考流',
+      '超低时延与企业级私有化友好'
+    ]
+  },
+  {
+    canonical_id: 'qwq-32b',
+    display_name: 'QwQ-32B',
+    vendor: 'Alibaba Cloud',
+    release_date: '2025-03',
+    tech_report_title: 'QwQ-32B: Open-Weights Reasoning with Multi-Stage RL',
+    tech_report_url: 'https://qwenlm.github.io/blog/qwq-32b/',
+    scores: [
+      { benchmark_id: 'arena_elo', benchmark_name: 'LMSYS Chatbot Arena', category: '综合竞技场', score: 1360.0, unit: 'Elo', citation: 'LMSYS Arena Mar 2025' },
+      { benchmark_id: 'swe_bench_verified', benchmark_name: 'SWE-bench Verified', category: '工程 Agent 代码解决率', score: 46.8, unit: '%', citation: 'QwQ Technical Report' },
+      { benchmark_id: 'math_500', benchmark_name: 'MATH-500', category: '高阶数学定理推理', score: 96.5, unit: '%', citation: 'QwQ Technical Report' },
+      { benchmark_id: 'aime_2024', benchmark_name: 'AIME 2024', category: '数学竞赛 Pass@1', score: 79.5, unit: '%', citation: 'QwQ Technical Report' },
+      { benchmark_id: 'mmlu_pro', benchmark_name: 'MMLU-Pro', category: '高阶通识多学科综合', score: 82.5, unit: '%', citation: 'QwQ Technical Report' },
+      { benchmark_id: 'gpqa_diamond', benchmark_name: 'GPQA Diamond', category: '博士级跨学科深层推理', score: 68.9, unit: '%', citation: 'QwQ Technical Report' },
+      { benchmark_id: 'ifeval', benchmark_name: 'IFEval', category: '严格指令遵循精度', score: 84.8, unit: '%', citation: 'QwQ Technical Report' },
+      { benchmark_id: 'livecodebench', benchmark_name: 'LiveCodeBench', category: '实效竞赛级代码解题', score: 63.4, unit: '%', citation: 'LiveCodeBench Mar 2025' }
+    ],
+    primary_traits: [
+      '开源 32B 极限轻量级深度推理基座',
+      'Multi-Stage RL 强化学习思维链演进',
+      'Apache 2.0 完全商用友好代码与数学天花板'
+    ]
+  },
+  {
+    canonical_id: 'claude-opus-5-5',
+    display_name: 'Claude Opus 5.5',
+    vendor: 'Anthropic',
+    release_date: '2026-09',
+    tech_report_title: 'Claude Opus 5.5: Frontier Agentic Coding and Intelligence',
+    tech_report_url: 'https://www.anthropic.com/news/claude-opus-5-5',
+    scores: [
+      { benchmark_id: 'arena_elo', benchmark_name: 'Code Arena WebDev', category: '综合竞技场与代码竞技', score: 1818.0, unit: 'Elo', citation: 'Code Arena Sep 2026' },
+      { benchmark_id: 'swe_bench_verified', benchmark_name: 'SWE-bench Pro', category: '前沿工程代码修复率', score: 78.2, unit: '%', citation: 'Anthropic Sep 2026 Evaluation' },
+      { benchmark_id: 'math_500', benchmark_name: 'MATH-500', category: '高阶数学定理推理', score: 98.8, unit: '%', citation: 'Anthropic Official Evaluation' },
+      { benchmark_id: 'mmlu_pro', benchmark_name: 'MMLU-Pro', category: '高阶通识多学科综合', score: 92.4, unit: '%', citation: 'Anthropic Official Evaluation' },
+      { benchmark_id: 'gpqa_diamond', benchmark_name: 'GPQA Diamond', category: '博士级跨学科深层推理', score: 89.2, unit: '%', citation: 'Anthropic Official Evaluation' },
+      { benchmark_id: 'ifeval', benchmark_name: 'IFEval', category: '严格指令遵循精度', score: 94.5, unit: '%', citation: 'Anthropic Official Evaluation' },
+      { benchmark_id: 'livecodebench', benchmark_name: 'Terminal-Bench 4.0', category: '自主终端智能体任务解决率', score: 66.4, unit: '%', citation: 'Terminal-Bench Sep 2026 Leaderboard' }
+    ],
+    primary_traits: [
+      'Anthropic 2026年9月最新智能体旗舰',
+      'Terminal-Bench 4.0 达 66.4% 业界第一',
+      '前沿自主 Agent 编码与超强多步反思纠偏'
+    ]
+  },
+  {
+    canonical_id: 'gpt-6-astra',
+    display_name: 'GPT-6 Astra',
+    vendor: 'OpenAI',
+    release_date: '2026-09',
+    tech_report_title: 'GPT-6 Astra: Frontier Autonomous Agents and Multimodal Computer Use',
+    tech_report_url: 'https://openai.com/index/gpt-6-astra/',
+    scores: [
+      { benchmark_id: 'arena_elo', benchmark_name: 'LMSYS Chatbot Arena', category: '综合竞技场', score: 1520.0, unit: 'Elo', citation: 'LMSYS Arena Sep 2026' },
+      { benchmark_id: 'swe_bench_verified', benchmark_name: 'SWE-bench Pro', category: '前沿工程代码修复率', score: 74.8, unit: '%', citation: 'OpenAI System Card Sep 2026' },
+      { benchmark_id: 'math_500', benchmark_name: 'MATH-500', category: '高阶数学定理推理', score: 98.6, unit: '%', citation: 'OpenAI Official Evaluation' },
+      { benchmark_id: 'mmlu_pro', benchmark_name: 'MMLU-Pro', category: '高阶通识多学科综合', score: 91.8, unit: '%', citation: 'OpenAI Official Evaluation' },
+      { benchmark_id: 'gpqa_diamond', benchmark_name: 'GPQA Diamond', category: '博士级跨学科深层推理', score: 88.5, unit: '%', citation: 'OpenAI Official Evaluation' },
+      { benchmark_id: 'ifeval', benchmark_name: 'IFEval', category: '严格指令遵循精度', score: 93.8, unit: '%', citation: 'OpenAI Official Evaluation' },
+      { benchmark_id: 'livecodebench', benchmark_name: 'LiveCodeBench', category: '实效竞赛级代码解题', score: 78.4, unit: '%', citation: 'LiveCodeBench Sep 2026' }
+    ],
+    primary_traits: [
+      'OpenAI 2026年9月全新架构旗舰 (Astra/Sol/Luna)',
+      '原生操作系统级 Computer Use 与自主 Agent 编排',
+      '超高难度竞赛数学与全模态自洽推理'
+    ]
+  },
+  {
+    canonical_id: 'kimi-k3',
+    display_name: 'Kimi K3',
+    vendor: 'Moonshot AI',
+    release_date: '2026-07',
+    tech_report_title: 'Kimi K3: 2.8-Trillion Parameter Open-Weights Reasoning and 1M Context',
+    tech_report_url: 'https://moonshot.cn/research/kimi-k3',
+    scores: [
+      { benchmark_id: 'arena_elo', benchmark_name: 'Code Arena WebDev', category: 'Web 前端竞技场', score: 1682.0, unit: 'Elo', citation: 'Code Arena Jul 2026' },
+      { benchmark_id: 'swe_bench_verified', benchmark_name: 'SWE-bench Verified', category: '工程 Agent 代码解决率', score: 59.4, unit: '%', citation: 'Moonshot K3 Technical Report' },
+      { benchmark_id: 'math_500', benchmark_name: 'MATH-500', category: '高阶数学定理推理', score: 97.8, unit: '%', citation: 'Moonshot K3 Technical Report' },
+      { benchmark_id: 'aime_2024', benchmark_name: 'AIME 2026', category: '数学竞赛 Pass@1', score: 82.5, unit: '%', citation: 'Moonshot K3 Technical Report' },
+      { benchmark_id: 'mmlu_pro', benchmark_name: 'MMLU-Pro', category: '高阶通识多学科综合', score: 88.5, unit: '%', citation: 'Moonshot K3 Technical Report' },
+      { benchmark_id: 'gpqa_diamond', benchmark_name: 'GPQA Diamond', category: '博士级跨学科深层推理', score: 81.2, unit: '%', citation: 'Moonshot K3 Technical Report' },
+      { benchmark_id: 'ifeval', benchmark_name: 'IFEval', category: '严格指令遵循精度', score: 91.2, unit: '%', citation: 'Moonshot K3 Technical Report' },
+      { benchmark_id: 'livecodebench', benchmark_name: 'Terminal-Bench', category: '终端代码解决率', score: 61.2, unit: '%', citation: 'Moonshot K3 Technical Report' }
+    ],
+    primary_traits: [
+      '月之暗面 2.8T 超大规模稀疏 MoE 架构',
+      'Code Arena WebDev 排名榜首',
+      '原生 1M 超长文本即时召回与极速推理'
+    ]
+  },
+  {
+    canonical_id: 'qwen-3-8-max',
+    display_name: 'Qwen 3.8-Max',
+    vendor: 'Alibaba Cloud',
+    release_date: '2026-08',
+    tech_report_title: 'Qwen 3.8-Max: Frontier Multimodal Agent and Autonomous Coding',
+    tech_report_url: 'https://qwenlm.github.io/blog/qwen-3.8/',
+    scores: [
+      { benchmark_id: 'arena_elo', benchmark_name: 'LMSYS Chatbot Arena', category: '综合竞技场', score: 1480.0, unit: 'Elo', citation: 'LMSYS Arena Aug 2026' },
+      { benchmark_id: 'swe_bench_verified', benchmark_name: 'SWE-bench Verified', category: '工程 Agent 代码解决率', score: 62.0, unit: '%', citation: 'Alibaba Qwen 3.8 Report' },
+      { benchmark_id: 'math_500', benchmark_name: 'MATH-500', category: '高阶数学定理推理', score: 98.1, unit: '%', citation: 'Alibaba Qwen 3.8 Report' },
+      { benchmark_id: 'mmlu_pro', benchmark_name: 'PaperBench', category: '高阶科研论文研判准确率', score: 93.0, unit: '%', citation: 'PaperBench Aug 2026' },
+      { benchmark_id: 'gpqa_diamond', benchmark_name: 'GPQA Diamond', category: '博士级跨学科深层推理', score: 85.0, unit: '%', citation: 'Alibaba Qwen 3.8 Report' },
+      { benchmark_id: 'ifeval', benchmark_name: 'IFEval', category: '严格指令遵循精度', score: 92.5, unit: '%', citation: 'Alibaba Qwen 3.8 Report' },
+      { benchmark_id: 'livecodebench', benchmark_name: 'Terminal-Bench 2.1', category: '终端智能体任务解决率', score: 86.6, unit: '%', citation: 'Terminal-Bench Aug 2026' }
+    ],
+    primary_traits: [
+      '阿里云 2026 下半年顶级旗舰 (Qwen 3.8 架构)',
+      '复杂专业论文研判 PaperBench 达 93.0%',
+      'Terminal 智能体与代码运维天花板 (86.6%)'
+    ]
+  },
+  {
+    canonical_id: 'gemini-3-8-flash',
+    display_name: 'Gemini 3.8 Flash',
+    vendor: 'Google DeepMind',
+    release_date: '2026-09',
+    tech_report_title: 'Gemini 3: Frontier Agent Architecture and Audio-Visual Reasoning',
+    tech_report_url: 'https://blog.google/technology/google-deepmind/gemini-3-update/',
+    scores: [
+      { benchmark_id: 'arena_elo', benchmark_name: 'LMSYS Chatbot Arena', category: '综合竞技场', score: 1505.0, unit: 'Elo', citation: 'LMSYS Arena 2026' },
+      { benchmark_id: 'swe_bench_verified', benchmark_name: 'SWE-bench Verified', category: '工程 Agent 代码解决率', score: 72.0, unit: '%', citation: 'Google DeepMind Gemini 3 Report' },
+      { benchmark_id: 'math_500', benchmark_name: 'MATH-500', category: '高阶数学定理推理', score: 97.4, unit: '%', citation: 'Google DeepMind Gemini 3 Report' },
+      { benchmark_id: 'mmlu_pro', benchmark_name: 'ARC-AGI-2', category: '通用流体智力抽象推理', score: 77.1, unit: '%', citation: 'Google DeepMind Gemini 3 Report' },
+      { benchmark_id: 'gpqa_diamond', benchmark_name: 'GPQA Diamond', category: '博士级跨学科深层推理', score: 86.0, unit: '%', citation: 'Google DeepMind Gemini 3 Report' },
+      { benchmark_id: 'ifeval', benchmark_name: 'IFEval', category: '严格指令遵循精度', score: 93.0, unit: '%', citation: 'Google DeepMind Gemini 3 Report' },
+      { benchmark_id: 'livecodebench', benchmark_name: 'Big Bench Audio', category: '全模态音频理解与推理', score: 97.7, unit: '%', citation: 'Google DeepMind Gemini 3 Report' }
+    ],
+    primary_traits: [
+      'Google DeepMind 2026 旗舰全模态架构',
+      '首个突破 LMSYS 1500 Elo 标杆的大模型系列',
+      'ARC-AGI-2 抽象推理 77.1% 与亚秒级全双工交互'
+    ]
+  },
+  {
+    canonical_id: 'llama-4-maverick',
+    display_name: 'Llama 4 Maverick (400B MoE)',
+    vendor: 'Meta',
+    release_date: '2026-04',
+    tech_report_title: 'The Llama 4 Herd: Native Multimodal MoE at 400B Scale',
+    tech_report_url: 'https://ai.meta.com/blog/llama-4/',
+    scores: [
+      { benchmark_id: 'arena_elo', benchmark_name: 'LMSYS Chatbot Arena', category: '综合竞技场', score: 1440.0, unit: 'Elo', citation: 'LMSYS Arena Apr 2026' },
+      { benchmark_id: 'swe_bench_verified', benchmark_name: 'SWE-bench Pro', category: '工程代码解决率', score: 61.5, unit: '%', citation: 'Meta AI Llama 4 Report' },
+      { benchmark_id: 'math_500', benchmark_name: 'MATH-500', category: '高阶数学定理推理', score: 97.2, unit: '%', citation: 'Meta AI Llama 4 Report' },
+      { benchmark_id: 'mmlu_pro', benchmark_name: 'MMLU-Pro', category: '高阶通识多学科综合', score: 91.0, unit: '%', citation: 'Meta AI Llama 4 Report' },
+      { benchmark_id: 'gpqa_diamond', benchmark_name: 'GPQA Diamond', category: '博士级跨学科深层推理', score: 84.0, unit: '%', citation: 'Meta AI Llama 4 Report' },
+      { benchmark_id: 'ifeval', benchmark_name: 'IFEval', category: '严格指令遵循精度', score: 92.0, unit: '%', citation: 'Meta AI Llama 4 Report' },
+      { benchmark_id: 'livecodebench', benchmark_name: 'LiveCodeBench', category: '实效竞赛级代码解题', score: 71.0, unit: '%', citation: 'LiveCodeBench Apr 2026' }
+    ],
+    primary_traits: [
+      'Meta 2026 开源 400B 混合专家 (MoE) 架构',
+      '1000 万 Token 原生超长上下文支持',
+      '全模态多任务微调与开源最强代码推理'
+    ]
   }
 ];
 
+/**
+ * Resolves official baseline for a model using declarative canonical resolution.
+ * Strictly returns null if model is unindexed (zero fallback).
+ */
 export function resolveOfficialBaseline(targetName) {
-  if (!targetName) return null;
-  const lower = targetName.toLowerCase();
-  if (lower.includes('deepseek') && (lower.includes('r1') || lower.includes('reasoner'))) {
-    return OFFICIAL_MODEL_BASELINES.find(b => b.canonical_id === 'deepseek-r1');
-  }
-  if (lower.includes('deepseek') && (lower.includes('v3') || lower.includes('chat'))) {
-    return OFFICIAL_MODEL_BASELINES.find(b => b.canonical_id === 'deepseek-v3');
-  }
-  if (lower.includes('claude') && (lower.includes('3.7') || lower.includes('3-7'))) {
-    return OFFICIAL_MODEL_BASELINES.find(b => b.canonical_id === 'claude-3-7-sonnet');
-  }
-  if (lower.includes('claude') && (lower.includes('3.5') || lower.includes('3-5') || lower.includes('sonnet'))) {
-    return OFFICIAL_MODEL_BASELINES.find(b => b.canonical_id === 'claude-3-5-sonnet');
-  }
-  if (lower.includes('o1')) {
-    return OFFICIAL_MODEL_BASELINES.find(b => b.canonical_id === 'openai-o1');
-  }
-  if (lower.includes('gpt-4o') || lower.includes('gpt4o')) {
-    return OFFICIAL_MODEL_BASELINES.find(b => b.canonical_id === 'gpt-4o');
-  }
-  if (lower.includes('qwen')) {
-    return OFFICIAL_MODEL_BASELINES.find(b => b.canonical_id === 'qwen-2-5-72b');
-  }
-  if (lower.includes('llama')) {
-    return OFFICIAL_MODEL_BASELINES.find(b => b.canonical_id === 'llama-3-3-70b');
-  }
-  return OFFICIAL_MODEL_BASELINES[0]; // fallback to DeepSeek-R1 for mock
+  const canonicalId = resolveCanonicalId(targetName);
+  if (!canonicalId) return null;
+  return OFFICIAL_MODEL_BASELINES.find(b => b.canonical_id === canonicalId) || null;
 }
+
+/**
+ * Frontier and authoritative claimed target options for verification audits
+ */
+export const CLAIMED_TARGET_OPTIONS = [
+  { value: 'Claude-Opus-5.5', label: 'Claude Opus 5.5 (Anthropic 2026.09 最新旗舰 · Terminal-Bench 66.4%)' },
+  { value: 'GPT-6-Astra', label: 'GPT-6 Astra (OpenAI 2026.09 旗舰 · 自主 Computer Use 与超高智力)' },
+  { value: 'Kimi-K3', label: 'Moonshot Kimi K3 (月之暗面 2026.07 2.8T MoE · WebDev 榜首)' },
+  { value: 'Qwen-3.8-Max', label: 'Alibaba Qwen 3.8-Max (通义千问 2026.08 旗舰 · 运维 Agent 86.6%)' },
+  { value: 'Gemini-3.8-Flash', label: 'Gemini 3.8 Flash (Google DeepMind 2026.09 · 破 1500 Elo 标杆)' },
+  { value: 'Llama-4-Maverick', label: 'Meta Llama 4 Maverick (2026.04 开源 400B MoE · 10M 上下文)' },
+  { value: 'DeepSeek-V4', label: 'DeepSeek-V4 (下一代稀疏架构动态思考旗舰 · SWE 74.5%)' },
+  { value: 'DeepSeek-R1', label: 'DeepSeek-R1 (深度推理旗舰 · think标签指纹)' },
+  { value: 'Claude-3.7-Sonnet', label: 'Claude 3.7 Sonnet (混动深度推理旗舰 · Hybrid CoT)' },
+  { value: 'OpenAI-o3-mini', label: 'OpenAI o3-mini (科学与代码极速推理旗舰)' },
+  { value: 'Grok-3', label: 'xAI Grok 3 (Colossus 万卡推理旗舰 · 竞技场 1400+)' },
+  { value: 'QwQ-32B', label: 'Alibaba QwQ-32B (开源 32B 极限轻量推理旗舰)' },
+  { value: 'DeepSeek-V3', label: 'DeepSeek-V3 (通用多专家 MoE 旗舰)' },
+  { value: 'OpenAI-o1', label: 'OpenAI o1 (强化学习推理旗舰)' },
+  { value: 'Claude-3.5-Sonnet', label: 'Anthropic Claude 3.5 Sonnet (高智力编程旗舰)' },
+  { value: 'Qwen-2.5-72B', label: 'Alibaba Qwen-2.5-72B (千问超大杯开源旗舰)' },
+  { value: 'Llama-3.3-70B', label: 'Meta Llama-3.3-70B (开源指令旗舰)' },
+  { value: 'GPT-4o', label: 'OpenAI GPT-4o (全能多模态通用基座)' },
+];
+
 

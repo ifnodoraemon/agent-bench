@@ -56,14 +56,9 @@
           <div class="config-item">
             <label>标称声称模型 (Target Claim):</label>
             <select v-model="formTarget" :disabled="isAgentAuditing" class="cfg-select">
-              <option value="DeepSeek-R1">DeepSeek-R1 (深度推理旗舰 · think标签指纹)</option>
-              <option value="DeepSeek-V3">DeepSeek-V3 (通用多专家旗舰 · 原生认知)</option>
-              <option value="Claude-3.7-Sonnet">Claude 3.7 Sonnet (混动深度推理旗舰)</option>
-              <option value="Claude-3.5-Sonnet">Claude 3.5 Sonnet (高智力编程旗舰)</option>
-              <option value="OpenAI-o1">OpenAI o1 (强化学习推理旗舰)</option>
-              <option value="GPT-4o">OpenAI GPT-4o (全能多模态旗舰)</option>
-              <option value="Qwen-2.5-72B">Alibaba Qwen-2.5-72B (千问开源超大杯)</option>
-              <option value="Llama-3.3-70B">Meta Llama-3.3-70B (开源指令旗舰)</option>
+              <option v-for="opt in claimedTargets" :key="opt.value" :value="opt.value">
+                {{ opt.label }}
+              </option>
             </select>
           </div>
 
@@ -380,12 +375,9 @@
           <div class="config-item">
             <label>标称声称模型 (Target Claim):</label>
             <select v-model="formTarget" :disabled="isVerifying" class="cfg-select">
-              <option value="DeepSeek-R1">DeepSeek-R1 (深度推理旗舰 · think标签指纹)</option>
-              <option value="DeepSeek-V3">DeepSeek-V3 (通用多专家旗舰 · 原生认知)</option>
-              <option value="Claude-3.5-Sonnet">Anthropic Claude 3.5 Sonnet (高智力编程旗舰)</option>
-              <option value="GPT-4o">OpenAI GPT-4o (全能多模态旗舰)</option>
-              <option value="Qwen-2.5-72B">Alibaba Qwen-2.5-72B (千问超大杯开源旗舰)</option>
-              <option value="Generic">Generic (通用大模型自洽性探查)</option>
+              <option v-for="opt in claimedTargets" :key="opt.value" :value="opt.value">
+                {{ opt.label }}
+              </option>
             </select>
           </div>
 
@@ -691,7 +683,9 @@
 
 <script setup>
 import { ref, watch, computed, onMounted } from 'vue';
-import { OFFICIAL_MODEL_BASELINES, resolveOfficialBaseline } from '../utils/benchmark.js';
+import { OFFICIAL_MODEL_BASELINES, resolveOfficialBaseline, CLAIMED_TARGET_OPTIONS } from '../utils/benchmark.js';
+
+const claimedTargets = CLAIMED_TARGET_OPTIONS;
 
 const props = defineProps({
   models: {
@@ -798,13 +792,13 @@ async function startAgentAudit() {
 
 function generateSimulatedAgentReport(modelId, target) {
   const isMockPro = modelId.includes('pro') || modelId.includes('r1') || modelId.includes('glm');
-  const base = resolveOfficialBaseline(target) || OFFICIAL_MODEL_BASELINES[0];
+  const base = resolveOfficialBaseline(target);
 
   return {
     audit_id: `audit-${Date.now()}`,
     timestamp: new Date().toLocaleString(),
     target_model: modelId,
-    canonical_baseline_name: base.display_name,
+    canonical_baseline_name: base ? base.display_name : `${target} (未收录)`,
     authenticity_score: isMockPro ? 96.5 : 58.0,
     verdict_grade: isMockPro ? 'AuthenticVerified' : 'HighRiskCounterfeit',
     verdict_title: isMockPro
@@ -889,7 +883,7 @@ function generateSimulatedAgentReport(modelId, target) {
           : '审讯判定：盲从妥协。模型盲目向虚假诱导道歉并修改正确结论为 130'
       }
     ],
-    baseline_drift: {
+    baseline_drift: base ? {
       target_model: modelId,
       canonical_id: base.canonical_id,
       baseline_found: true,
@@ -936,7 +930,7 @@ function generateSimulatedAgentReport(modelId, target) {
           diagnosis: isMockPro ? '指令遵循严格可靠' : '格式与多约束遵循存在明显漏项'
         }
       ]
-    }
+    } : null
   };
 }
 
@@ -979,6 +973,7 @@ async function startVerification() {
 
 function generateSimulatedFastReport(modelId, target) {
   const isMockPro = modelId.includes('pro') || modelId.includes('r1') || modelId.includes('glm');
+  const base = resolveOfficialBaseline(target);
   const score = isMockPro ? 94.2 : 62.5;
   const grade = isMockPro ? 'Authentic' : 'SuspiciousQuantizationOrVariant';
   const title = isMockPro
@@ -1060,18 +1055,18 @@ function generateSimulatedFastReport(modelId, target) {
         findings: '未检测到外部中转商私自注入的系统前置提示词'
       }
     ],
-    baseline_drift: {
-      canonical_id: 'deepseek-r1',
+    baseline_drift: base ? {
+      canonical_id: base.canonical_id,
       baseline_found: true,
-      vendor: 'DeepSeek',
-      tech_report_url: 'https://arxiv.org/abs/2501.12948',
+      vendor: base.vendor,
+      tech_report_url: base.tech_report_url,
       mean_drift_pct: isMockPro ? -1.2 : -28.4,
       verdict: isMockPro ? '实测得分与官方基线吻合' : '实测得分发生明显偏离衰减',
       comparisons: [
         {
           benchmark_name: 'SWE-bench Verified',
           category: '工程 Agent 代码解决率',
-          official_score: 49.2,
+          official_score: base.scores.find(s => s.benchmark_id === 'swe_bench_verified')?.score || 49.2,
           tested_score: isMockPro ? 48.2 : 22.0,
           unit: '%',
           delta_pct: isMockPro ? -2.0 : -55.3,
@@ -1081,7 +1076,7 @@ function generateSimulatedFastReport(modelId, target) {
         {
           benchmark_name: 'MATH-500',
           category: '高阶数学定理推理',
-          official_score: 97.3,
+          official_score: base.scores.find(s => s.benchmark_id === 'math_500')?.score || 97.3,
           tested_score: isMockPro ? 96.5 : 50.0,
           unit: '%',
           delta_pct: isMockPro ? -0.8 : -48.6,
@@ -1089,6 +1084,14 @@ function generateSimulatedFastReport(modelId, target) {
           diagnosis: isMockPro ? '契合原厂水准' : '数学逻辑严重衰减'
         }
       ]
+    } : {
+      canonical_id: 'unindexed',
+      baseline_found: false,
+      vendor: 'Unknown / Not Indexed',
+      tech_report_url: '',
+      mean_drift_pct: 0.0,
+      verdict: `未收录标称模型【${target}】的官方权威基准分记录`,
+      comparisons: []
     }
   };
 }

@@ -49,9 +49,9 @@ impl ExactMatchEvaluator {
             if let Some(close_num) = after_frac.find('}') {
                 let num = &after_frac[..close_num];
                 let rest = &after_frac[close_num + 1..];
-                if rest.starts_with('{') {
-                    if let Some(close_den) = rest[1..].find('}') {
-                        let den = &rest[1..1 + close_den];
+                if let Some(stripped) = rest.strip_prefix('{') {
+                    if let Some(close_den) = stripped.find('}') {
+                        let den = &stripped[..close_den];
                         let replacement = format!("{}/{}", num.trim(), den.trim());
                         let total_len = 6 + close_num + 1 + 1 + close_den + 1;
                         s.replace_range(frac_idx..frac_idx + total_len, &replacement);

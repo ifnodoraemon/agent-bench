@@ -1,4 +1,4 @@
-use crate::config::ConfigFile;
+use crate::config::{resolve_env_str, ConfigFile};
 use anyhow::{Context, Result};
 use comfy_table::modifiers::UTF8_ROUND_CORNERS;
 use comfy_table::presets::UTF8_FULL;
@@ -9,6 +9,7 @@ use eval_core::verifier::{BaselineDriftReport, DriftStatus, ModelVerifier, Verif
 use std::path::Path;
 use std::str::FromStr;
 
+#[allow(clippy::too_many_arguments)]
 pub async fn execute_verify(
     model: Option<String>,
     target: Option<String>,
@@ -57,10 +58,10 @@ pub async fn execute_verify(
 
     // Apply CLI overrides if present
     if let Some(url) = base_url {
-        model_config.base_url = Some(url);
+        model_config.base_url = Some(resolve_env_str(&url));
     }
     if let Some(key) = api_key {
-        model_config.api_key = Some(key);
+        model_config.api_key = Some(resolve_env_str(&key));
     }
     if let Some(p_str) = protocol {
         if let Ok(p) = ApiProtocol::from_str(&p_str) {

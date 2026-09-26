@@ -22,8 +22,18 @@
         <div class="config-item">
           <label>评测模型:</label>
           <select v-model="formModel" :disabled="isRunning" class="cfg-select">
-            <option value="mock-pro">🤖 Mock-Pro-v1 (模拟深度思考与工具编排)</option>
-            <option value="mock-fast">⚡ Mock-Fast-v1 (模拟极速轻量模型)</option>
+            <optgroup label="内置模拟模型 (Mock)">
+              <option value="mock-pro">🤖 Mock-Pro-v1 (模拟深度思考与工具编排)</option>
+              <option value="mock-fast">⚡ Mock-Fast-v1 (模拟极速轻量模型)</option>
+            </optgroup>
+            <optgroup v-if="uniqueModels.length > 0" label="已加载模型 (Reports / Config)">
+              <option v-for="m in uniqueModels" :key="m.model_name" :value="m.model_name">
+                🌐 {{ m.display_name || m.model_name }} ({{ m.channel || '已载入' }})
+              </option>
+            </optgroup>
+            <optgroup label="自定义接入 (Live API)">
+              <option value="custom">⚙️ 自定义端点 / 模型 API...</option>
+            </optgroup>
           </select>
         </div>
 
@@ -75,6 +85,58 @@
             :disabled="isRunning"
             class="cfg-range"
           />
+        </div>
+      </div>
+
+      <!-- Custom Endpoint Options (when formModel === 'custom') -->
+      <div v-if="formModel === 'custom'" class="custom-endpoint-box">
+        <div class="custom-box-title">
+          <span>⚙️ 自定义端点与凭证直连参数 (严禁隐式兜底，非法端点将直接阻断并报错)</span>
+        </div>
+        <div class="custom-grid">
+          <div class="config-item">
+            <label>目标模型代号 (Model ID) *:</label>
+            <input
+              v-model="customModelName"
+              type="text"
+              placeholder="例如: gpt-4o, deepseek-chat, qwen-2.5-72b-instruct"
+              :disabled="isRunning"
+              class="cfg-input"
+            />
+          </div>
+
+          <div class="config-item">
+            <label>API 协议 (Protocol) *:</label>
+            <select v-model="formProtocol" :disabled="isRunning" class="cfg-select">
+              <option value="openai_chat">OpenAI Chat Completion (/v1/chat/completions)</option>
+              <option value="anthropic">Anthropic Messages (/v1/messages)</option>
+              <option value="gemini">Google Gemini Content API</option>
+              <option value="ollama">Ollama Native API (/api/chat)</option>
+              <option value="gpustack">GPUStack OpenAI 兼容端点</option>
+            </select>
+          </div>
+
+          <div class="config-item">
+            <label>Base URL (可选, 支持 env:VAR):</label>
+            <input
+              v-model="formBaseUrl"
+              type="text"
+              placeholder="例如: https://api.openai.com/v1 或 env:OPENAI_BASE_URL"
+              :disabled="isRunning"
+              class="cfg-input font-mono"
+            />
+          </div>
+
+          <div class="config-item">
+            <label>API Key (可选, 支持 env:VAR):</label>
+            <input
+              v-model="formApiKey"
+              type="password"
+              placeholder="例如: sk-... 或 env:OPENAI_API_KEY"
+              :disabled="isRunning"
+              class="cfg-input font-mono"
+            />
+          </div>
         </div>
       </div>
 
@@ -202,13 +264,36 @@
 import { ref, computed, onMounted, onBeforeUnmount } from 'vue';
 import { CATEGORY_NAMES } from '../utils/benchmark';
 
+const props = defineProps({
+  models: {
+    type: Array,
+    default: () => []
+  }
+});
+
 const emit = defineEmits(['load-run']);
 
 const formModel = ref('mock-pro');
+const customModelName = ref('');
+const formProtocol = ref('openai_chat');
+const formBaseUrl = ref('');
+const formApiKey = ref('');
 const formCategory = ref('all');
 const formDifficulty = ref('all');
 const formLimit = ref(10);
 const formConcurrency = ref(4);
+
+const uniqueModels = computed(() => {
+  if (!props.models || !props.models.length) return [];
+  const map = new Map();
+  for (const m of props.models) {
+    const key = m.model_name || m.display_name;
+    if (key && !map.has(key)) {
+      map.set(key, m);
+    }
+  }
+  return Array.from(map.values());
+});
 
 const liveState = ref({
   status: 'idle',
@@ -247,12 +332,31 @@ function getStatusText(st) {
 
 async function startBenchmark() {
   try {
+    let targetModel = formModel.value;
+    let proto = null;
+    let baseUrl = null;
+    let apiKey = null;
+
+    if (formModel.value === 'custom') {
+      if (!customModelName.value.trim()) {
+        alert('请输入自定义目标模型代号 (Model ID)');
+        return;
+      }
+      targetModel = customModelName.value.trim();
+      proto = formProtocol.value;
+      baseUrl = formBaseUrl.value.trim() || null;
+      apiKey = formApiKey.value.trim() || null;
+    }
+
     const payload = {
-      model: formModel.value,
+      model: targetModel,
       category: formCategory.value === 'all' ? null : formCategory.value,
       difficulty: formDifficulty.value === 'all' ? null : formDifficulty.value,
       limit: formLimit.value,
-      concurrency: formConcurrency.value
+      concurrency: formConcurrency.value,
+      protocol: proto,
+      base_url: baseUrl,
+      api_key: apiKey
     };
 
     const res = await fetch('/api/benchmark/run', {
@@ -417,7 +521,8 @@ onBeforeUnmount(() => {
   color: var(--text-muted);
 }
 
-.cfg-select {
+.cfg-select,
+.cfg-input {
   background: var(--bg-surface);
   border: 1px solid var(--border-strong);
   color: var(--text-heading);
@@ -425,6 +530,37 @@ onBeforeUnmount(() => {
   border-radius: 8px;
   font-size: 0.88rem;
   outline: none;
+  transition: border-color 0.2s;
+}
+
+.cfg-select:focus,
+.cfg-input:focus {
+  border-color: #3b82f6;
+}
+
+.custom-endpoint-box {
+  background: rgba(59, 130, 246, 0.04);
+  border: 1px dashed rgba(59, 130, 246, 0.4);
+  border-radius: 10px;
+  padding: 1.2rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.custom-box-title {
+  font-size: 0.82rem;
+  font-weight: 700;
+  color: #3b82f6;
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.custom-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+  gap: 1rem;
 }
 
 .cfg-range {

@@ -88,17 +88,26 @@ pub enum EvaluationType {
     AgentTrajectory,
 }
 
-impl EvaluationType {
-    pub fn from_str(s: &str) -> Option<Self> {
+impl std::str::FromStr for EvaluationType {
+    type Err = anyhow::Error;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
         match s.to_lowercase().trim() {
-            "exact_match" | "exact" => Some(EvaluationType::ExactMatch),
-            "regex" => Some(EvaluationType::Regex),
-            "json_schema" | "schema" | "json" => Some(EvaluationType::JsonSchema),
-            "code_execution" | "code" | "sandbox" => Some(EvaluationType::CodeExecution),
-            "llm_judge" | "judge" => Some(EvaluationType::LlmJudge),
-            "agent_trajectory" | "agent" | "trajectory" | "tools" => Some(EvaluationType::AgentTrajectory),
-            _ => None,
+            "exact_match" | "exact" => Ok(EvaluationType::ExactMatch),
+            "regex" => Ok(EvaluationType::Regex),
+            "json_schema" | "schema" | "json" => Ok(EvaluationType::JsonSchema),
+            "code_execution" | "code" | "sandbox" => Ok(EvaluationType::CodeExecution),
+            "llm_judge" | "judge" => Ok(EvaluationType::LlmJudge),
+            "agent_trajectory" | "agent" | "trajectory" | "tools" => Ok(EvaluationType::AgentTrajectory),
+            other => Err(anyhow::anyhow!("Unknown EvaluationType: {other}")),
         }
+    }
+}
+
+impl EvaluationType {
+    #[allow(clippy::should_implement_trait)]
+    pub fn from_str(s: &str) -> Option<Self> {
+        s.parse().ok()
     }
 }
 
@@ -193,29 +202,13 @@ impl TestCase {
         if let Some(d) = self.metadata.get("difficulty").and_then(|v| v.as_str()) {
             return d;
         }
-        if self.id.contains("_hard_") || self.id.contains("putnam") || self.id.contains("swe_hard") {
-            "L5"
-        } else if self.id.contains("agent_")
-            || self.id.contains("sec_")
-            || self.id.contains("devops_")
-            || self.tags.iter().any(|t| t == "hard" || t == "complex_agent")
-        {
-            "L4"
-        } else if matches!(
-            self.category,
-            Category::Medical
-                | Category::Legal
-                | Category::Finance
-                | Category::Science
-                | Category::Humanities
-                | Category::MathLogic
-        ) {
-            "L3"
-        } else if self.tags.iter().any(|t| t == "simple" || t == "easy" || t == "sanity") {
-            "L1"
-        } else {
-            "L2"
+        if self.tags.iter().any(|t| t == "simple" || t == "easy" || t == "sanity") {
+            return "L1";
         }
+        if self.tags.iter().any(|t| t == "hard" || t == "complex_agent") {
+            return "L4";
+        }
+        crate::metrics::resolve_tier(&self.id, self.category.as_str())
     }
 }
 

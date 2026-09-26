@@ -28,6 +28,7 @@ fn collect_jsonl_files(path: &Path, files: &mut Vec<PathBuf>) -> Result<()> {
     Ok(())
 }
 
+#[allow(clippy::too_many_arguments)]
 pub async fn execute_run(
     config_path: Option<String>,
     dataset_paths: Vec<String>,

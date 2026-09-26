@@ -147,7 +147,7 @@ Respond strictly in JSON format as follows:
             let composite_score = json_val
                 .get("composite_score")
                 .and_then(|s| s.as_f64())
-                .unwrap_or_else(|| (g * 0.40) + (t * 0.25) + (r * 0.20) + (e * 0.15))
+                .unwrap_or((g * 0.40) + (t * 0.25) + (r * 0.20) + (e * 0.15))
                 .clamp(0.0, 1.0);
 
             let passed = json_val
@@ -259,9 +259,7 @@ Respond strictly in JSON format as follows:
             }
         }
 
-        let error_recovery_score = if !had_error {
-            1.0
-        } else if recovered {
+        let error_recovery_score = if !had_error || recovered {
             1.0
         } else {
             0.0
@@ -319,7 +317,7 @@ Respond strictly in JSON format as follows:
 
         EvaluationResult {
             passed,
-            score: (composite_score as f64).clamp(0.0, 1.0),
+            score: composite_score.clamp(0.0, 1.0),
             reason: format!("Agent 5-Dim Score ({:.2}/1.00): {}", composite_score, reason_str),
             dimensions: Some(dimensions),
             details: Some(details),

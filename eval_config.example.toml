@@ -1,87 +1,106 @@
-# agent-bench 配置文件示例
+# ==============================================================================
+# 🦀 agent-bench 2026 最新旗舰大模型与 Agent 评测配置示例
 # 架构原则：protocol 显式指定传输协议格式 ("openai_chat" | "openai_response" | "anthropic" | "gemini" | "mock")
+# 环境变量解析：支持通过 "env:VARIABLE_NAME" 自动安全注入 API 密钥与服务端点
+# ==============================================================================
 
 [benchmark]
-concurrency = 5
+concurrency = 8
 output_dir = "./results"
 save_json = true
 save_markdown = true
 save_html = true
 
 # ==============================================================================
-# LLM-as-a-Judge 裁判模型配置 (可选)
-# 用于复杂开放式任务以及 Agent 决策轨迹（Trajectory）的多维度自动化专家打分
+# ==============================================================================
+# LLM-as-a-Judge 专家裁判模型配置 (用于 Agent 轨迹 Trajectory 与开放式主观判定)
+# 推荐采用 Claude Opus 5.5, GPT-6 Astra 或 DeepSeek-V4 等 2026 前沿推理自洽模型
 # ==============================================================================
 [judge]
-id = "judge-gpt4o"
-protocol = "openai_chat"
-model_name = "gpt-4o"
-base_url = "https://api.openai.com/v1"
-api_key = "env:OPENAI_API_KEY"
-temperature = 0.0
-
-# 待评测模型列表
-
-# 1. 经典通用 OpenAI Chat Completions 协议 (/v1/chat/completions)
-# 适用: DeepSeek, 通义千问 Qwen, 本地 Ollama/vLLM, Moonshot, SiliconFlow, Groq 等
-[[models]]
-id = "deepseek-chat"
-protocol = "openai_chat"
-model_name = "deepseek-chat"
-base_url = "https://api.deepseek.com/v1"
-api_key = "env:DEEPSEEK_API_KEY"
-temperature = 0.0
-price_per_input_million = 0.14
-price_per_output_million = 0.28
-
-# 2. OpenAI 最新 Responses API 协议 (/v1/responses)
-# 适用: OpenAI 官方全新 Responses API (支持 input/instructions/多模态/思考流)
-[[models]]
-id = "gpt-4o-responses"
-protocol = "openai_response"
-model_name = "gpt-4o"
-base_url = "https://api.openai.com/v1"
-api_key = "env:OPENAI_API_KEY"
-temperature = 0.0
-price_per_input_million = 2.50
-price_per_output_million = 10.00
-
-# 3. 通义千问 Qwen (OpenAI Chat 协议 + 阿里百炼 BaseURL)
-[[models]]
-id = "qwen-plus"
-protocol = "openai_chat"
-model_name = "qwen-plus"
-base_url = "https://dashscope.aliyuncs.com/compatible-mode/v1"
-api_key = "env:DASHSCOPE_API_KEY"
-temperature = 0.0
-
-# 4. 本地 Ollama / vLLM / SGLang (OpenAI Chat 协议 + 本地 BaseURL)
-[[models]]
-id = "qwen2.5-local"
-protocol = "openai_chat"
-model_name = "qwen2.5:7b"
-base_url = "http://localhost:11434/v1"
-api_key = "none"
-temperature = 0.0
-
-# 5. 原生 Anthropic Claude (Anthropic Messages 协议格式 /v1/messages)
-[[models]]
-id = "claude-3-5-haiku"
+id = "judge-claude-opus-5-5"
 protocol = "anthropic"
-model_name = "claude-3-5-haiku-20241022"
+model_name = "claude-opus-5.5"
 base_url = "https://api.anthropic.com/v1"
 api_key = "env:ANTHROPIC_API_KEY"
 temperature = 0.0
-price_per_input_million = 0.80
+
+# ==============================================================================
+# 待评测大模型列表 (涵盖 2026 最新前沿推理模型、智能体模型及多模态基座)
+# ==============================================================================
+
+# 1. Anthropic Claude Opus 5.5 (2026-09): 前沿智能体与 Terminal-Bench 榜首旗舰
+[[models]]
+id = "claude-opus-5-5"
+protocol = "anthropic"
+model_name = "claude-opus-5.5"
+base_url = "https://api.anthropic.com/v1"
+api_key = "env:ANTHROPIC_API_KEY"
+temperature = 0.0
+price_per_input_million = 5.00
+price_per_output_million = 25.00
+
+# 2. OpenAI GPT-6 Astra (2026-09): 原生系统级 Computer Use 与自主 Agent 旗舰
+[[models]]
+id = "gpt-6-astra"
+protocol = "openai_chat"
+model_name = "gpt-6-astra"
+base_url = "https://api.openai.com/v1"
+api_key = "env:OPENAI_API_KEY"
+temperature = 0.0
+price_per_input_million = 10.00
+price_per_output_million = 50.00
+
+# 3. Moonshot Kimi K3 (2026-07): 2.8T 稀疏 MoE 架构，Web 前端与 1M 上下文旗舰
+[[models]]
+id = "kimi-k3"
+protocol = "openai_chat"
+model_name = "kimi-k3"
+base_url = "https://api.moonshot.cn/v1"
+api_key = "env:MOONSHOT_API_KEY"
+temperature = 0.0
+price_per_input_million = 1.00
 price_per_output_million = 4.00
 
-# 6. 原生 Google Gemini (Gemini generateContent 协议格式)
+# 4. Alibaba Qwen 3.8-Max (2026-08): 阿里云百炼千问顶级智能体旗舰 (Terminal 86.6%)
 [[models]]
-id = "gemini-2.0-flash"
+id = "qwen-3-8-max"
+protocol = "openai_chat"
+model_name = "qwen-3.8-max"
+base_url = "https://dashscope.aliyuncs.com/compatible-mode/v1"
+api_key = "env:DASHSCOPE_API_KEY"
+temperature = 0.0
+price_per_input_million = 2.00
+price_per_output_million = 8.00
+
+# 5. Google Gemini 3.8 Flash (2026-09): 原生全模态、流式极速响应与突破 1500 Elo 标杆
+[[models]]
+id = "gemini-3-8-flash"
 protocol = "gemini"
-model_name = "gemini-2.0-flash"
+model_name = "gemini-3.8-flash"
 base_url = "https://generativelanguage.googleapis.com/v1beta"
 api_key = "env:GEMINI_API_KEY"
 temperature = 0.0
-price_per_input_million = 0.10
-price_per_output_million = 0.40
+price_per_input_million = 0.20
+price_per_output_million = 0.80
+
+# 6. DeepSeek-V4: 下一代极速稀疏超大杯架构与动态思考流 (SWE 74.5%)
+[[models]]
+id = "deepseek-v4"
+protocol = "openai_chat"
+model_name = "deepseek-v4"
+base_url = "https://api.deepseek.com/v1"
+api_key = "env:DEEPSEEK_API_KEY"
+temperature = 0.0
+price_per_input_million = 0.30
+price_per_output_million = 1.20
+
+# 7. 私有化集群部署 (vLLM / SGLang / GPUStack: 例如本地蒸馏推理模型)
+[[models]]
+id = "deepseek-r1-local-32b"
+protocol = "openai_chat"
+model_name = "deepseek-ai/DeepSeek-R1-Distill-Qwen-32B"
+base_url = "http://localhost:8000/v1"
+api_key = "none"
+temperature = 0.0
+price_per_input_million = 0.0
+price_per_output_million = 0.0

@@ -281,7 +281,7 @@
 
           <!-- 8. Live Benchmark Runner -->
           <div v-show="currentTab === 'live'">
-            <LiveBenchmarkRunner @load-run="handleLoadNewRun" />
+            <LiveBenchmarkRunner :models="enrichedModels" @load-run="handleLoadNewRun" />
           </div>
 
           <!-- 9. Model Verification -->

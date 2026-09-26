@@ -88,6 +88,103 @@ fn default_elo() -> f64 {
     1200.0
 }
 
+struct ChannelRule {
+    channel: &'static str,
+    keywords: &'static [&'static str],
+}
+
+static CHANNEL_RULES: &[ChannelRule] = &[
+    ChannelRule { channel: "硅基流动 (SiliconFlow)", keywords: &["silicon"] },
+    ChannelRule { channel: "火山方舟 (Volcengine)", keywords: &["volc", "ark", "ep-"] },
+    ChannelRule { channel: "OpenRouter", keywords: &["openrouter"] },
+    ChannelRule { channel: "阿里云百炼 (DashScope)", keywords: &["dashscope", "bailian", "aliyun"] },
+    ChannelRule { channel: "Together AI", keywords: &["together"] },
+    ChannelRule { channel: "Groq (LPU)", keywords: &["groq"] },
+    ChannelRule { channel: "AWS Bedrock", keywords: &["bedrock"] },
+    ChannelRule { channel: "GCP Vertex AI", keywords: &["vertex"] },
+    ChannelRule { channel: "Azure AI Foundry", keywords: &["azure"] },
+    ChannelRule { channel: "GPUStack 企业算力", keywords: &["gpustack", "10.232."] },
+    ChannelRule { channel: "私有集群 (Self-Hosted/vLLM)", keywords: &["vllm", "sglang", "local", "ollama"] },
+    ChannelRule { channel: "模拟环境 (Mock Sandbox)", keywords: &["mock"] },
+];
+
+struct CanonicalDisplayRule {
+    display_name: &'static str,
+    keywords: &'static [&'static str],
+    exclusions: &'static [&'static str],
+}
+
+static CANONICAL_DISPLAY_RULES: &[CanonicalDisplayRule] = &[
+    // 2026 Flagship Frontier
+    CanonicalDisplayRule { display_name: "Claude-Opus-5.5", keywords: &["claude-opus-5.5", "claude-opus-5-5", "claude-5.5", "claude-5", "opus-5.5", "opus-5"], exclusions: &[] },
+    CanonicalDisplayRule { display_name: "GPT-6-Astra", keywords: &["gpt-6-astra", "gpt-6-sol", "gpt-6-luna", "gpt-6", "gpt6"], exclusions: &[] },
+    CanonicalDisplayRule { display_name: "Kimi-K3", keywords: &["kimi-k3", "kimi_k3", "kimik3", "kimi-3", "kimi3"], exclusions: &[] },
+    CanonicalDisplayRule { display_name: "Qwen-3.8-Max", keywords: &["qwen-3.8-max", "qwen-3.8", "qwen3.8", "qwen-3", "qwen3"], exclusions: &["qwq"] },
+    CanonicalDisplayRule { display_name: "Gemini-3.8-Flash", keywords: &["gemini-3.8", "gemini-3.1", "gemini-3", "gemini3"], exclusions: &[] },
+    CanonicalDisplayRule { display_name: "Llama-4-Maverick", keywords: &["llama-4-maverick", "llama-4-scout", "llama-4", "llama4"], exclusions: &[] },
+    // Earlier Families
+    CanonicalDisplayRule { display_name: "DeepSeek-V4", keywords: &["deepseek-v4", "deepseek_v4", "deepseekv4"], exclusions: &[] },
+    CanonicalDisplayRule { display_name: "DeepSeek-R1", keywords: &["deepseek-r1", "deepseek_r1", "deepseek-reasoner", "r1-distill"], exclusions: &[] },
+    CanonicalDisplayRule { display_name: "DeepSeek-V3", keywords: &["deepseek-v3", "deepseek-chat"], exclusions: &[] },
+    CanonicalDisplayRule { display_name: "Grok-3 / Grok-4", keywords: &["grok-3", "grok3", "grok-4", "grok4", "grok"], exclusions: &[] },
+    CanonicalDisplayRule { display_name: "Claude-3.7-Sonnet", keywords: &["claude-3-7", "claude-3.7", "claude-37"], exclusions: &["opus-5", "claude-5", "5.5"] },
+    CanonicalDisplayRule { display_name: "Claude-3.5-Sonnet", keywords: &["claude-3-5", "claude-3.5", "claude-35"], exclusions: &["opus-5", "claude-5", "5.5"] },
+    CanonicalDisplayRule { display_name: "OpenAI-o3-mini", keywords: &["o3-mini", "o3mini", "openai-o3", "o3"], exclusions: &[] },
+    CanonicalDisplayRule { display_name: "OpenAI-o1", keywords: &["o1-preview", "o1-mini", "openai-o1", "o1"], exclusions: &[] },
+    CanonicalDisplayRule { display_name: "GPT-4o-mini", keywords: &["gpt-4o-mini"], exclusions: &[] },
+    CanonicalDisplayRule { display_name: "GPT-4o", keywords: &["gpt-4o", "gpt4o", "gpt-5"], exclusions: &["gpt-6", "gpt6"] },
+    CanonicalDisplayRule { display_name: "QwQ-32B", keywords: &["qwq-32b", "qwq_32b", "qwq"], exclusions: &[] },
+    CanonicalDisplayRule { display_name: "Qwen-2.5-72B", keywords: &["qwen2.5-72b", "qwen-2.5-72b", "qwen-2.5"], exclusions: &["qwq", "qwen-3", "qwen3"] },
+    CanonicalDisplayRule { display_name: "GLM-5 / GLM-4", keywords: &["glm-5", "glm5", "glm-4", "glm4", "glm"], exclusions: &[] },
+    CanonicalDisplayRule { display_name: "Llama-3.3-70B", keywords: &["llama-3.3", "llama-3-3", "llama3.3"], exclusions: &["llama-4", "llama4"] },
+    CanonicalDisplayRule { display_name: "Gemini-2.0-Pro", keywords: &["gemini-2.0-pro", "gemini-2-pro"], exclusions: &["gemini-3", "gemini3"] },
+    CanonicalDisplayRule { display_name: "Gemini-2.0-Flash", keywords: &["gemini-2.0", "gemini-2"], exclusions: &["pro", "gemini-3", "gemini3"] },
+    CanonicalDisplayRule { display_name: "Gemini-1.5-Pro", keywords: &["gemini-1.5"], exclusions: &[] },
+    CanonicalDisplayRule { display_name: "Mock-Pro-v1", keywords: &["mock-pro"], exclusions: &[] },
+    CanonicalDisplayRule { display_name: "Mock-Fast-v1", keywords: &["mock-fast"], exclusions: &[] },
+];
+
+struct TierRule {
+    tier: &'static str,
+    id_keywords: &'static [&'static str],
+    categories: &'static [&'static str],
+}
+
+static TIER_RULES: &[TierRule] = &[
+    TierRule {
+        tier: "L5",
+        id_keywords: &["_hard_", "putnam", "swe_hard", "jailbreak"],
+        categories: &[],
+    },
+    TierRule {
+        tier: "L4",
+        id_keywords: &["agent_", "sec_", "devops_", "swe_", "react_", "tool_", "error_"],
+        categories: &["swe", "agent", "devops", "security", "data_analyst"],
+    },
+    TierRule {
+        tier: "L3",
+        id_keywords: &["med_", "law_", "legal_", "fin_", "math_"],
+        categories: &["medical", "legal", "finance", "science", "humanities", "math_logic"],
+    },
+    TierRule {
+        tier: "L2",
+        id_keywords: &["hum_", "sci_", "multi_", "needle_", "code_", "hallucination_"],
+        categories: &["code_generation", "multilingual", "instruction", "structured_output", "long_context"],
+    },
+];
+
+pub fn resolve_tier(test_case_id: &str, category: &str) -> &'static str {
+    let lower_id = test_case_id.to_lowercase();
+    TIER_RULES
+        .iter()
+        .find(|rule| {
+            rule.id_keywords.iter().any(|&k| lower_id.contains(k))
+                || rule.categories.contains(&category)
+        })
+        .map(|r| r.tier)
+        .unwrap_or("L1")
+}
+
 pub fn resolve_canonical_and_channel(
     model_id: &str,
     model_name: &str,
@@ -96,58 +193,25 @@ pub fn resolve_canonical_and_channel(
     let lower_id = model_id.to_lowercase();
     let lower_name = model_name.to_lowercase();
     let lower_prov = provider.unwrap_or("").to_lowercase();
+    let combined_str = format!("{} {} {}", lower_id, lower_name, lower_prov);
 
-    // 1. Resolve Channel / Hosting Provider
-    let channel = if lower_id.contains("silicon") || lower_prov.contains("silicon") {
-        "硅基流动 (SiliconFlow)".to_string()
-    } else if lower_id.contains("volc") || lower_id.contains("ark") || lower_id.starts_with("ep-") || lower_prov.contains("volc") {
-        "火山方舟 (Volcengine)".to_string()
-    } else if lower_id.contains("openrouter") || lower_prov.contains("openrouter") {
-        "OpenRouter".to_string()
-    } else if lower_id.contains("dashscope") || lower_id.contains("bailian") || lower_prov.contains("aliyun") {
-        "阿里云百炼 (DashScope)".to_string()
-    } else if lower_id.contains("together") || lower_prov.contains("together") {
-        "Together AI".to_string()
-    } else if lower_id.contains("groq") || lower_prov.contains("groq") {
-        "Groq (LPU)".to_string()
-    } else if lower_id.contains("bedrock") || lower_prov.contains("bedrock") {
-        "AWS Bedrock".to_string()
-    } else if lower_id.contains("vertex") || lower_prov.contains("vertex") {
-        "GCP Vertex AI".to_string()
-    } else if lower_id.contains("azure") || lower_prov.contains("azure") {
-        "Azure AI Foundry".to_string()
-    } else if lower_id.contains("vllm") || lower_id.contains("sglang") || lower_id.contains("local") || lower_id.contains("ollama") {
-        "私有集群 (Self-Hosted/vLLM)".to_string()
-    } else if lower_id.starts_with("mock") {
-        "模拟环境 (Mock Sandbox)".to_string()
-    } else {
-        "官方直连 (Official)".to_string()
-    };
+    // 1. Resolve Channel via declarative rules
+    let channel = CHANNEL_RULES
+        .iter()
+        .find(|r| r.keywords.iter().any(|&k| combined_str.contains(k)))
+        .map(|r| r.channel.to_string())
+        .unwrap_or_else(|| "官方直连 (Official)".to_string());
 
-    // 2. Resolve Canonical Model Family
-    let canonical = if lower_id.contains("deepseek-r1") || lower_id.contains("deepseek-reasoner") || lower_name.contains("deepseek-r1") || lower_name.contains("r1") {
-        "DeepSeek-R1".to_string()
-    } else if lower_id.contains("deepseek-v3") || lower_id.contains("deepseek-chat") || lower_name.contains("deepseek-v3") || lower_name.contains("deepseek-v4") {
-        "DeepSeek-V3".to_string()
-    } else if lower_id.contains("claude-3-5-sonnet") || lower_name.contains("claude-3.5-sonnet") {
-        "Claude-3.5-Sonnet".to_string()
-    } else if lower_id.contains("gpt-4o-mini") || lower_name.contains("gpt-4o-mini") {
-        "GPT-4o-mini".to_string()
-    } else if lower_id.contains("gpt-4o") || lower_name.contains("gpt-4o") {
-        "GPT-4o".to_string()
-    } else if lower_id.contains("qwen2.5-72b") || lower_id.contains("qwen-2.5-72b") || lower_name.contains("qwen2.5-72b") || lower_name.contains("qwen3.8") {
-        "Qwen-2.5-72B".to_string()
-    } else if lower_id.contains("glm-4") || lower_name.contains("glm-5") || lower_name.contains("glm") {
-        "GLM-4 / GLM-5".to_string()
-    } else if lower_id.contains("llama-3.3-70b") || lower_id.contains("llama3.3:70b") || lower_name.contains("llama-3.3") {
-        "Llama-3.3-70B".to_string()
-    } else if lower_id.starts_with("mock-pro") {
-        "Mock-Pro-v1".to_string()
-    } else if lower_id.starts_with("mock-fast") {
-        "Mock-Fast-v1".to_string()
-    } else {
-        model_name.to_string()
-    };
+    // 2. Resolve Canonical Model via declarative rules
+    let canonical = CANONICAL_DISPLAY_RULES
+        .iter()
+        .find(|r| {
+            let matched = r.keywords.iter().any(|&k| lower_id.contains(k) || lower_name.contains(k));
+            let excluded = r.exclusions.iter().any(|&k| lower_id.contains(k) || lower_name.contains(k));
+            matched && !excluded
+        })
+        .map(|r| r.display_name.to_string())
+        .unwrap_or_else(|| model_name.to_string());
 
     (canonical, channel)
 }
@@ -305,15 +369,7 @@ impl ModelBenchmarkSummary {
 
         for case in &case_results {
             let tier = case.difficulty.as_deref().unwrap_or_else(|| {
-                if case.test_case_id.contains("_hard_") || case.test_case_id.contains("putnam") || case.test_case_id.contains("swe_hard") {
-                    "L5"
-                } else if case.test_case_id.contains("agent_") || case.test_case_id.contains("sec_") || case.test_case_id.contains("devops_") {
-                    "L4"
-                } else if ["medical", "legal", "finance", "science", "humanities", "math_logic"].contains(&case.category.as_str()) {
-                    "L3"
-                } else {
-                    "L2"
-                }
+                resolve_tier(&case.test_case_id, case.category.as_str())
             });
 
             let entry = tier_map.entry(tier.to_string()).or_insert((0, 0));

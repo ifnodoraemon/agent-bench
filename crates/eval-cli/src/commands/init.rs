@@ -11,22 +11,22 @@ pub fn execute_init(output_path: Option<String>) -> Result<()> {
     // 1. Select Protocol Format
     println!("\n📌 [步骤 1/5] 请选择待测模型的底层 API 协议格式 (Protocol Format):");
     println!("  [1] OpenAI Chat Completions (/v1/chat/completions)");
-    println!("      适用: 经典通用格式 (OpenAI, DeepSeek, 通义千问, 本地 Ollama/vLLM, Moonshot, Groq 等)");
+    println!("      适用: 通用标准格式 (GPT-6 Astra, Kimi K3, Qwen 3.8-Max, DeepSeek-V4, 本地 Ollama/vLLM/GPUStack 等)");
     println!("  [2] OpenAI Responses API (/v1/responses)");
-    println!("      适用: OpenAI 最新旗舰级 Responses 格式 (支持 input/instructions/内置搜索/思考流)");
+    println!("      适用: OpenAI Responses 格式 (支持 GPT-6 / o3 / input / instructions / 内置搜索)");
     println!("  [3] Anthropic Claude (/v1/messages)");
-    println!("      适用: Claude 3.5 Sonnet / Haiku / Opus 及 Claude 代理网关");
+    println!("      适用: Claude Opus 5.5 (2026最新旗舰) / Claude 3.7 及 Claude 代理网关");
     println!("  [4] Google Gemini (generateContent)");
-    println!("      适用: Google Gemini 1.5 / 2.0 原生协议端点与中转反代");
+    println!("      适用: Google Gemini 3 (Gemini 3.8 Flash / 3.1 Pro) 原生端点与中转反代");
     println!("  [5] Mock Simulation (虚拟仿真模式，离线零成本评测)");
 
     let protocol_choice = prompt_input("请输入选项序号 [1-5] (默认 1): ", "1");
     let (protocol, default_url, default_model, default_key) = match protocol_choice.trim() {
-        "2" => ("openai_response", "https://api.openai.com/v1", "gpt-4o", "env:OPENAI_API_KEY"),
-        "3" => ("anthropic", "https://api.anthropic.com/v1", "claude-3-5-sonnet-20241022", "env:ANTHROPIC_API_KEY"),
-        "4" => ("gemini", "https://generativelanguage.googleapis.com/v1beta", "gemini-2.0-flash", "env:GEMINI_API_KEY"),
-        "5" => ("mock", "", "mock-model", "none"),
-        _ => ("openai_chat", "https://api.deepseek.com/v1", "deepseek-chat", "env:DEEPSEEK_API_KEY"),
+        "2" => ("openai_response", "https://api.openai.com/v1", "gpt-6-astra", "env:OPENAI_API_KEY"),
+        "3" => ("anthropic", "https://api.anthropic.com/v1", "claude-opus-5.5", "env:ANTHROPIC_API_KEY"),
+        "4" => ("gemini", "https://generativelanguage.googleapis.com/v1beta", "gemini-3.8-flash", "env:GEMINI_API_KEY"),
+        "5" => ("mock", "", "mock-pro", "none"),
+        _ => ("openai_chat", "https://api.openai.com/v1", "gpt-6-astra", "env:OPENAI_API_KEY"),
     };
 
     // 2. Model Identifier
