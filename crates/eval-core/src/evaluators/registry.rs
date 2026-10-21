@@ -1,6 +1,7 @@
 use super::{
-    CodeSandboxEvaluator, EvaluationResult, Evaluator, ExactMatchEvaluator, JsonSchemaEvaluator,
-    MultipleChoiceEvaluator, NumericEvaluator, RegexEvaluator, ToolCallEvaluator,
+    CodeSandboxEvaluator, EvaluationResult, Evaluator, ExactMatchEvaluator, F1Evaluator,
+    IfEvalEvaluator, JsonSchemaEvaluator, MultipleChoiceEvaluator, NumericEvaluator,
+    RegexEvaluator, ToolCallEvaluator,
 };
 use crate::dataset::{EvaluationType, TestCase};
 use crate::model::ModelResponse;
@@ -31,6 +32,8 @@ impl EvaluatorRegistry {
             Arc::new(MultipleChoiceEvaluator),
         );
         registry.register(EvaluationType::ToolCall, Arc::new(ToolCallEvaluator));
+        registry.register(EvaluationType::F1, Arc::new(F1Evaluator));
+        registry.register(EvaluationType::IfEval, Arc::new(IfEvalEvaluator));
         registry.register(EvaluationType::JsonSchema, Arc::new(JsonSchemaEvaluator));
         registry.register(
             EvaluationType::CodeExecution,

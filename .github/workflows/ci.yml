@@ -1,0 +1,80 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  rust:
+    name: Rust / datasets
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    env:
+      # GitHub-hosted runners may restrict unprivileged user namespaces. Keep
+      # production fail-closed, but let CI exercise non-sandbox logic. bwrap is
+      # still installed and tested below when available.
+      AGENT_BENCH_ALLOW_UNSANDBOXED: "1"
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y bubblewrap python3
+
+      - name: Check bubblewrap availability
+        run: |
+          bwrap --version
+          bwrap --die-with-parent --unshare-all --ro-bind / / -- /bin/true \
+            && echo "bwrap smoke: OK" \
+            || echo "bwrap smoke: unavailable on this runner (tests use explicit fallback)"
+
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+
+      - name: Cache Rust build
+        uses: Swatinem/rust-cache@v2
+
+      - name: Format
+        run: cargo fmt --all -- --check
+
+      - name: Clippy (deny warnings)
+        run: cargo clippy --workspace --all-targets -- -D warnings
+
+      - name: Test
+        run: cargo test --workspace
+
+      - name: Validate datasets
+        run: cargo run --bin agent-bench -- validate datasets
+
+  web:
+    name: Web build
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    defaults:
+      run:
+        working-directory: web
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+
+      - name: Install
+        run: npm ci
+
+      - name: Build
+        run: npm run build

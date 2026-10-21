@@ -1,7 +1,7 @@
 {
   "schema_version": 2,
   "suite": "agent-bench-v2-public",
-  "generated_at": "2026-10-21T07:07:16.154575+00:00",
+  "generated_at": "2026-10-21T08:03:57.276627+00:00",
   "sample_seed": 42,
   "sources": [
     {
@@ -81,8 +81,16 @@
       "url": "https://github.com/THUDM/LongBench",
       "revision": "5e628be450b7e67fb7ae6e201bd6d8f7056f7672",
       "license": "MIT",
-      "official_metric": "task F1/accuracy (judge-based adaptation here)",
+      "official_metric": "task F1/accuracy (token-F1 subset here)",
       "used": 50
+    },
+    {
+      "name": "IFEval",
+      "url": "https://huggingface.co/datasets/google/IFEval",
+      "revision": "966cd89545d6b6acfd7638bc708b98261ca58e84",
+      "license": "Apache-2.0",
+      "official_metric": "strict instruction accuracy (21-type deterministic subset)",
+      "used": 100
     }
   ],
   "files": [
@@ -119,9 +127,17 @@
       "official_metric": "pass@1 (unit tests)"
     },
     {
+      "path": "foundation/instruction_ifeval.jsonl",
+      "count": 100,
+      "sha256": "bbb3228d5b0df52a4e196c97beea6c3fd21ee210b8c6b297f7c1cec66cd0d090",
+      "source": "IFEval",
+      "license": "Apache-2.0",
+      "official_metric": "strict instruction accuracy (21-type deterministic subset)"
+    },
+    {
       "path": "foundation/knowledge_mmlu_pro.jsonl",
       "count": 150,
-      "sha256": "5e671d4de56816b80c1f1ace41470b2c30e7dfb4299b5e82efeda00333b215b4",
+      "sha256": "b539515565061fca723f057d23ac116c3a649f4bd5c3f0c7d770812c7bed8405",
       "source": "MMLU-Pro",
       "license": "MIT",
       "official_metric": "accuracy (letter)"
@@ -129,15 +145,15 @@
     {
       "path": "foundation/long_context_longbench.jsonl",
       "count": 50,
-      "sha256": "22e85d2879e897d7998de58abe59ab182166e801a2fb45868fb5cb5717396bf8",
+      "sha256": "d65dbd585b77faecd1e23fafd61657a7e05e2a1deb2b2d6a6f9fb85dc6a232e9",
       "source": "LongBench",
       "license": "MIT",
-      "official_metric": "task F1/accuracy (judge-based adaptation here)"
+      "official_metric": "task F1/accuracy (token-F1 subset here)"
     },
     {
       "path": "agent/tool_calling_bfcl.jsonl",
       "count": 100,
-      "sha256": "f21951980b93e580938c351b7499fd73840f74013248901943c93940b7f9d16d",
+      "sha256": "a08129b234142896dffbf2cf6597dcd4d101d5f76858af69b38b7206733bf34a",
       "source": "BFCL",
       "license": "Apache-2.0",
       "official_metric": "AST accuracy (single-turn simple); adapted function/argument match here"
@@ -145,7 +161,7 @@
     {
       "path": "domain/mmlu_domain.jsonl",
       "count": 150,
-      "sha256": "4ab4ebcf25fd7933c8d1767d811df26651d9412aa4ffb621bc7e750666b99528",
+      "sha256": "960c50df6ed9d14211f47078a83e483350f06a4cb30bc6a2d05c820d39de32fc",
       "source": "MMLU",
       "license": "MIT",
       "official_metric": "accuracy (letter)"
@@ -153,7 +169,7 @@
     {
       "path": "safety/truthfulqa.jsonl",
       "count": 100,
-      "sha256": "ac4cf2784ad13eb76394e97a37b0c585dd3dd2402fdef8262a86ae8f0efc72dd",
+      "sha256": "df720c6c75d1afd28b54b1c5edbb04a6bbac027b20714d89c57281c87e768450",
       "source": "TruthfulQA",
       "license": "Apache-2.0",
       "official_metric": "MC1 accuracy"
@@ -161,7 +177,7 @@
     {
       "path": "safety/harmbench.jsonl",
       "count": 100,
-      "sha256": "66d23a8537d7b2d8b29dab04ff8c3a61f012cb9467ca338151e37c22bf2deb0f",
+      "sha256": "61cfa02ec2128895f1a4c81d775ad1f11bebecb28f37d9a761066f53ed4b779b",
       "source": "HarmBench",
       "license": "MIT",
       "official_metric": "attack success rate (judge-based adaptation here)"

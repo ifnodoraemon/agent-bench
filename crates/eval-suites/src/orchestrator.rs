@@ -4,9 +4,9 @@ use eval_agent::{
 };
 use eval_core::dataset::{Category, Dataset, EvaluationType, TestCase};
 use eval_core::evaluators::{
-    CodeSandboxEvaluator, EvaluationResult, Evaluator, ExactMatchEvaluator, JsonSchemaEvaluator,
-    LlmJudgeEvaluator, MultipleChoiceEvaluator, NumericEvaluator, RegexEvaluator,
-    ToolCallEvaluator,
+    CodeSandboxEvaluator, EvaluationResult, Evaluator, ExactMatchEvaluator, F1Evaluator,
+    IfEvalEvaluator, JsonSchemaEvaluator, LlmJudgeEvaluator, MultipleChoiceEvaluator,
+    NumericEvaluator, RegexEvaluator, ToolCallEvaluator,
 };
 use eval_core::metrics::{CaseResult, ModelBenchmarkSummary};
 use eval_core::model::{ChatMessage, ModelClient};
@@ -468,6 +468,8 @@ impl BenchmarkOrchestrator {
                     .evaluate(&test_case, &model_resp)
                     .await?
             }
+            EvaluationType::F1 => F1Evaluator.evaluate(&test_case, &model_resp).await?,
+            EvaluationType::IfEval => IfEvalEvaluator.evaluate(&test_case, &model_resp).await?,
             EvaluationType::JsonSchema => {
                 JsonSchemaEvaluator
                     .evaluate(&test_case, &model_resp)

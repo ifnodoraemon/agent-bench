@@ -96,7 +96,14 @@ SOURCES = {
         "hf": "THUDM/LongBench",
         "url": "https://github.com/THUDM/LongBench",
         "license": "MIT",
-        "official_metric": "task F1/accuracy (judge-based adaptation here)",
+        "official_metric": "task F1/accuracy (token-F1 subset here)",
+    },
+    "IFEval": {
+        "hf": "google/IFEval",
+        "split": "train",
+        "url": "https://huggingface.co/datasets/google/IFEval",
+        "license": "Apache-2.0",
+        "official_metric": "strict instruction accuracy (21-type deterministic subset)",
     },
 }
 
@@ -480,6 +487,61 @@ def build_bfcl(rng, used):
     return rows
 
 
+IFEval_SUPPORTED = {
+    "punctuation:no_comma",
+    "length_constraints:number_words",
+    "length_constraints:number_sentences",
+    "length_constraints:number_paragraphs",
+    "detectable_format:number_bullet_lists",
+    "detectable_format:number_highlighted_sections",
+    "detectable_format:json_format",
+    "detectable_format:title",
+    "detectable_format:multiple_sections",
+    "change_case:english_lowercase",
+    "change_case:english_capital",
+    "startend:end_checker",
+    "startend:quotation",
+    "keywords:existence",
+    "keywords:forbidden_words",
+    "keywords:frequency",
+    "keywords:letter_frequency",
+    "combination:repeat_prompt",
+    "combination:two_responses",
+    "detectable_content:number_placeholders",
+    "detectable_content:postscript",
+}
+
+
+def build_ifeval(rng, used):
+    src = SOURCES["IFEval"]
+    ds = load_dataset(src["hf"], split=src["split"])
+    eligible = [
+        r for r in ds
+        if all(x in IFEval_SUPPORTED for x in r["instruction_id_list"])
+    ]
+    idx = sample_indices(len(eligible), 100, rng)
+    rows = []
+    for i, j in enumerate(idx, 1):
+        r = eligible[j]
+        rows.append(base_case(
+            f"ifeval_{i:03d}", "instruction", "L2",
+            ["instruction", "IFEval"],
+            r["prompt"],
+            "ifeval",
+            {
+                "source_dataset": "google/IFEval",
+                "source_revision": used["IFEval"]["revision"],
+                "source_split": src["split"],
+                "license": src["license"],
+                "official_metric": src["official_metric"],
+                "sample_seed": SEED,
+                "instruction_id_list": r["instruction_id_list"],
+                "kwargs": r["kwargs"],
+            },
+        ))
+    return rows
+
+
 def build_longbench(rng, used):
     src = SOURCES["LongBench"]
     zip_path = CACHE / "data.zip"
@@ -606,6 +668,7 @@ def main():
         ("foundation/math_gsm8k.jsonl", "GSM8K", build_gsm8k(rng, used)),
         ("foundation/code_humaneval.jsonl", "HumanEval", build_humaneval(used)),
         ("foundation/code_mbpp.jsonl", "MBPP", build_mbpp(rng, used)),
+        ("foundation/instruction_ifeval.jsonl", "IFEval", build_ifeval(rng, used)),
         ("foundation/knowledge_mmlu_pro.jsonl", "MMLU-Pro", build_mmlu_pro(rng, used)),
         ("foundation/long_context_longbench.jsonl", "LongBench", build_longbench(rng, used)),
         ("agent/tool_calling_bfcl.jsonl", "BFCL", build_bfcl(rng, used)),

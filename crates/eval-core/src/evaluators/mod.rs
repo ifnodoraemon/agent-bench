@@ -1,5 +1,7 @@
 pub mod code;
 pub mod exact;
+pub mod f1;
+pub mod ifeval;
 pub mod llm_judge;
 pub mod multiple_choice;
 pub mod numeric;
@@ -10,6 +12,8 @@ pub mod tool_call;
 
 pub use code::CodeSandboxEvaluator;
 pub use exact::ExactMatchEvaluator;
+pub use f1::F1Evaluator;
+pub use ifeval::IfEvalEvaluator;
 pub use llm_judge::LlmJudgeEvaluator;
 pub use multiple_choice::MultipleChoiceEvaluator;
 pub use numeric::NumericEvaluator;

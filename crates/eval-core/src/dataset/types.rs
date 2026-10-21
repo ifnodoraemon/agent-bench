@@ -89,6 +89,9 @@ pub enum EvaluationType {
     Numeric,
     MultipleChoice,
     ToolCall,
+    F1,
+    #[serde(rename = "ifeval", alias = "if_eval")]
+    IfEval,
 }
 
 impl std::str::FromStr for EvaluationType {
@@ -108,6 +111,8 @@ impl std::str::FromStr for EvaluationType {
             "tool_call" | "toolcall" | "function_call" | "functioncall" => {
                 Ok(EvaluationType::ToolCall)
             }
+            "f1" | "token_f1" => Ok(EvaluationType::F1),
+            "ifeval" | "instruction_following" => Ok(EvaluationType::IfEval),
             "agent_trajectory" | "agent" | "trajectory" | "tools" => {
                 Ok(EvaluationType::AgentTrajectory)
             }
@@ -177,7 +182,9 @@ impl TestCase {
             | EvaluationType::Regex
             | EvaluationType::Numeric
             | EvaluationType::MultipleChoice
-            | EvaluationType::ToolCall => 150,
+            | EvaluationType::ToolCall
+            | EvaluationType::F1
+            | EvaluationType::IfEval => 150,
             EvaluationType::JsonSchema | EvaluationType::CodeExecution => 180,
             EvaluationType::LlmJudge => 180,
             EvaluationType::AgentTrajectory => {
@@ -497,12 +504,12 @@ mod group_filter_tests {
     #[test]
     fn group_counts_match_readme() {
         let all = load_all();
-        assert_eq!(all.test_cases.len(), 1414);
-        assert_eq!(all.filter_by_group("foundation").test_cases.len(), 964);
+        assert_eq!(all.test_cases.len(), 1514);
+        assert_eq!(all.filter_by_group("foundation").test_cases.len(), 1064);
         assert_eq!(all.filter_by_group("agent").test_cases.len(), 100);
         assert_eq!(all.filter_by_group("domain").test_cases.len(), 150);
         assert_eq!(all.filter_by_group("safety").test_cases.len(), 200);
-        assert_eq!(all.filter_by_group("all").test_cases.len(), 1414);
+        assert_eq!(all.filter_by_group("all").test_cases.len(), 1514);
         assert!(!all.filter_by_group("foundation").test_cases.is_empty());
     }
 }

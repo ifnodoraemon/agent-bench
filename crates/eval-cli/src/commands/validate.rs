@@ -145,6 +145,41 @@ pub fn execute_validate(dataset_paths: Vec<String>) -> Result<()> {
                                     .to_string(),
                             ),
                         },
+                        EvaluationType::F1 => match &tc.reference_answer {
+                            Some(a) if !a.trim().is_empty() => {}
+                            _ => {
+                                errors.push("f1 requires a non-empty reference_answer".to_string())
+                            }
+                        },
+                        EvaluationType::IfEval => {
+                            if tc
+                                .metadata
+                                .get("instruction_id_list")
+                                .and_then(|v| v.as_array())
+                                .map(|a| a.is_empty())
+                                .unwrap_or(true)
+                            {
+                                errors.push(
+                                    "ifeval requires metadata.instruction_id_list".to_string(),
+                                );
+                            }
+                            if tc
+                                .metadata
+                                .get("kwargs")
+                                .and_then(|v| v.as_array())
+                                .map(|a| a.len())
+                                != tc
+                                    .metadata
+                                    .get("instruction_id_list")
+                                    .and_then(|v| v.as_array())
+                                    .map(|a| a.len())
+                            {
+                                errors.push(
+                                    "ifeval metadata.kwargs length must match instruction_id_list"
+                                        .to_string(),
+                                );
+                            }
+                        }
                         EvaluationType::ToolCall => {
                             if tc.tools.as_deref().map(|t| t.is_empty()).unwrap_or(true) {
                                 errors.push("tool_call requires non-empty tools".to_string());

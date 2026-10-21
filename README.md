@@ -16,13 +16,13 @@
 
 ## ✨ 核心能力
 
-- **10 个公开 benchmark 数据文件 / 1,414 条用例（v2）**：
-  - Foundation 964：MATH-500 300、GSM8K 150、HumanEval 164、MBPP 150、MMLU-Pro 150、LongBench 50。
+- **11 个公开 benchmark 数据文件 / 1,514 条用例（v2）**：
+  - Foundation 1,064：MATH-500 300、GSM8K 150、HumanEval 164、MBPP 150、IFEval 100、MMLU-Pro 150、LongBench 50。
   - Agent 100：BFCL v4 simple_python 单轮函数调用（适配为函数名/参数匹配判定）。
   - Domain 150：MMLU 医学/法律/金融/科学/人文各 30。
   - Safety 200：TruthfulQA 100、HarmBench 100。
   - 真实 Web/SQLite 工具已实现：`search_web` 需 `AGENT_BENCH_SEARCH_ENDPOINT`；`database_query` 查询 workspace 内只读 SQLite。
-  - 难度按数据源/抽样规则标注：L2 400、L3 585、L4 205、L5 224；L4+L5 共 **429** 条。
+  - 难度按数据源/抽样规则标注：L2 500、L3 585、L4 205、L5 224；L4+L5 共 **429** 条。
   - 每条用例带 `metadata.source_dataset/source_revision/license/official_metric`；`datasets/MANIFEST.json` 记录来源 URL、revision、许可、SHA256、抽样种子。
   - 数据由 `tools/build_public_datasets.py` 可复现生成；是公开 benchmark 的**抽样子集**，不是全量官方 leaderboard。
 - **Agent 执行**：Bash/文件/grep/calculator、只读 SQLite 查询、配置化 SearXNG 搜索、多轮 ReAct、工具轨迹记录、测试命令验证、轨迹 Judge。
@@ -67,7 +67,7 @@ cargo build --release
 
 ```bash
 cargo run --bin agent-bench -- validate datasets
-# 有错误时返回非 0；当前仓库 1,414 条应返回 0。
+# 有错误时返回非 0；当前仓库 1,514 条应返回 0。
 ```
 
 ### 3. 配置真实模型
@@ -201,7 +201,7 @@ agent-bench/
 │   ├── eval-agent/       # 工具执行、workspace、轨迹、动态对抗审计
 │   ├── eval-suites/      # 并发编排、取消、部分失败、Elo
 │   └── eval-cli/         # CLI、Dashboard Web 服务、验真命令
-├── datasets/             # 10 个公开 JSONL（1,414 条）+ MANIFEST/README
+├── datasets/             # 11 个公开 JSONL（1,514 条）+ MANIFEST/README
 ├── web/                  # Vue 3 + Vite 大屏
 └── eval_config.example.toml
 ```
@@ -217,14 +217,14 @@ agent-bench/
 
 ## 限制与诚实声明
 
-1. **数据是公开 benchmark 的抽样子集，不是全量官方 leaderboard**：HumanEval/MBPP/MMLU/MMLU-Pro/TruthfulQA/GSM8K/MATH-500/LongBench/HarmBench/BFCL 均记录来源、许可、版本和哈希；MATH-500、LongBench、HarmBench 使用 LLM Judge 适配，BFCL 使用函数名/参数匹配适配，不能直接对标官方分数；IFEval 尚未接入。
-2. **难度是启发式**：L2–L5 按来源/ID 规则标注，已写入 `difficulty` 字段以保证筛选与统计一致；不是人工校准的认知难度。当前 L4+L5 = 429；总计 1,414 条（含 BFCL L2 100 条）。
+1. **数据是公开 benchmark 的抽样子集，不是全量官方 leaderboard**：HumanEval/MBPP/MMLU/MMLU-Pro/TruthfulQA/GSM8K/MATH-500/LongBench/HarmBench/BFCL/IFEval 均记录来源、许可、版本和哈希；MATH-500、HarmBench 使用 LLM Judge 适配，LongBench 使用 token-F1 阈值，BFCL 使用函数名/参数匹配适配，IFEval 使用 21 类确定性规则子集，不能直接对标官方分数。
+2. **难度是启发式**：L2–L5 按来源/ID 规则标注，已写入 `difficulty` 字段以保证筛选与统计一致；不是人工校准的认知难度。当前 L4+L5 = 429；总计 1,514 条（含 BFCL L2 100 与 IFEval L2 100）。
 3. **验真不是认证**：自报身份、固定探针、动态题都可以被中转商针对性适配；`verified=false` 的基线不做漂移判定；没有运行 benchmark 时绝不生成“实测基线分”。
 4. **Judge 不是 ground truth**：LLM Judge 可能被注入、偏好冗长答案或给出不一致分数；代码中已加边界/校验/成本记录，但仍需人工抽检。
 5. **Elo/Composite 是参考指标**：加权、Elo、efficiency index 都是启发式；不同题集/运行之间不可直接比较。
 6. **真实 Web/SQLite 工具的边界**：`search_web` 需要运维配置 `AGENT_BENCH_SEARCH_ENDPOINT`（SearXNG 兼容 JSON），未配置时明确报错、不返回 fixture；`database_query` 只允许 workspace 内 SQLite 的只读 SELECT/WITH（默认 `data/bench.db`），不支持写/ATTACH/PRAGMA。
 7. **前端**：不再在 API 失败时生成模拟验真报告，也不再合成渠道数据；基线库从 `/api/baselines` 加载，并显示 `verified` 标记。若后端不可用，页面显示错误/空态，而不是伪造数据。
-8. **长上下文/指令遵循**：v2 的 LongBench 子集是约 4.5k–202k 字符真实长文（中位约 51k），使用 LLM-judge 适配，不是 128k/1M 上下文压力测试；IFEval 尚未接入，指令遵循类别暂缺。
+8. **长上下文/指令遵循**：v2 的 LongBench 子集是约 4.5k–202k 字符真实长文（中位约 51k），使用 token-F1 阈值；IFEval 只接入 21 类可确定性检查的指令（100 条），不是完整 25 类官方校验器，也不是 128k/1M 上下文压力测试。
 9. **Agentic 覆盖有限**：仅接入 BFCL v4 simple_python 100 条单轮函数调用；不含并行/多轮/缺参/无关函数等 BFCL 子集，也不是完整 Agent 环境。
 10. **公开数据许可**：数据集许可见 `datasets/MANIFEST.json` 与 `datasets/README.md`；MATH-500 的 HF card 未声明许可，按上游 MATH 的 MIT 记录，再分发前请自行核对上游条款。
 
