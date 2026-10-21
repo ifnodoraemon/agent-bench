@@ -88,10 +88,17 @@ impl Default for Sandbox {
 
 impl Sandbox {
     pub fn from_env() -> Self {
-        let bwrap = std::env::var_os("AGENT_BENCH_BWRAP")
-            .map(PathBuf::from)
-            .filter(|p| p.is_file())
-            .or_else(|| which("bwrap"));
+        // An explicit override is authoritative: if it is not a file, do not
+        // silently fall back to the host bwrap. This lets CI/operators select
+        // an explicit direct fallback (with AGENT_BENCH_ALLOW_UNSANDBOXED=1)
+        // when the runner forbids user namespaces.
+        let bwrap = match std::env::var_os("AGENT_BENCH_BWRAP") {
+            Some(path) => {
+                let path = PathBuf::from(path);
+                path.is_file().then_some(path)
+            }
+            None => which("bwrap"),
+        };
         let allow_unsandboxed = env_flag("AGENT_BENCH_ALLOW_UNSANDBOXED");
         let allow_network = env_flag("AGENT_BENCH_ALLOW_NETWORK");
         Self {
