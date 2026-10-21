@@ -86,6 +86,9 @@ pub enum EvaluationType {
     CodeExecution,
     LlmJudge,
     AgentTrajectory,
+    Numeric,
+    MultipleChoice,
+    ToolCall,
 }
 
 impl std::str::FromStr for EvaluationType {
@@ -98,7 +101,16 @@ impl std::str::FromStr for EvaluationType {
             "json_schema" | "schema" | "json" => Ok(EvaluationType::JsonSchema),
             "code_execution" | "code" | "sandbox" => Ok(EvaluationType::CodeExecution),
             "llm_judge" | "judge" => Ok(EvaluationType::LlmJudge),
-            "agent_trajectory" | "agent" | "trajectory" | "tools" => Ok(EvaluationType::AgentTrajectory),
+            "numeric" | "number" => Ok(EvaluationType::Numeric),
+            "multiple_choice" | "multiplechoice" | "mcq" | "mc" => {
+                Ok(EvaluationType::MultipleChoice)
+            }
+            "tool_call" | "toolcall" | "function_call" | "functioncall" => {
+                Ok(EvaluationType::ToolCall)
+            }
+            "agent_trajectory" | "agent" | "trajectory" | "tools" => {
+                Ok(EvaluationType::AgentTrajectory)
+            }
             other => Err(anyhow::anyhow!("Unknown EvaluationType: {other}")),
         }
     }
@@ -124,7 +136,12 @@ pub struct TestCase {
     pub prompt: String,
     #[serde(default)]
     pub system_prompt: Option<String>,
-    #[serde(default, alias = "expected_output", alias = "expected", alias = "answer")]
+    #[serde(
+        default,
+        alias = "expected_output",
+        alias = "expected",
+        alias = "answer"
+    )]
     pub reference_answer: Option<String>,
     pub eval_type: EvaluationType,
     #[serde(default, alias = "rubric", alias = "judge_criteria")]
@@ -156,11 +173,15 @@ impl TestCase {
 
         // 2. Base timeout by evaluation type
         let base_secs: u64 = match self.eval_type {
-            EvaluationType::ExactMatch | EvaluationType::Regex => 150,
+            EvaluationType::ExactMatch
+            | EvaluationType::Regex
+            | EvaluationType::Numeric
+            | EvaluationType::MultipleChoice
+            | EvaluationType::ToolCall => 150,
             EvaluationType::JsonSchema | EvaluationType::CodeExecution => 180,
             EvaluationType::LlmJudge => 180,
             EvaluationType::AgentTrajectory => {
-                let turns = self.max_turns.unwrap_or(6) as u64;
+                let turns = self.max_turns.unwrap_or(8).clamp(1, 64) as u64;
                 (90 + turns * 45).clamp(180, 480)
             }
         };
@@ -202,10 +223,18 @@ impl TestCase {
         if let Some(d) = self.metadata.get("difficulty").and_then(|v| v.as_str()) {
             return d;
         }
-        if self.tags.iter().any(|t| t == "simple" || t == "easy" || t == "sanity") {
+        if self
+            .tags
+            .iter()
+            .any(|t| t == "simple" || t == "easy" || t == "sanity")
+        {
             return "L1";
         }
-        if self.tags.iter().any(|t| t == "hard" || t == "complex_agent") {
+        if self
+            .tags
+            .iter()
+            .any(|t| t == "hard" || t == "complex_agent")
+        {
             return "L4";
         }
         crate::metrics::resolve_tier(&self.id, self.category.as_str())
@@ -229,6 +258,91 @@ impl Dataset {
             description: None,
             version: Some("1.0.0".to_string()),
             test_cases: Vec::new(),
+        }
+    }
+
+    /// Filter by a top-level dataset group or an exact category/subcategory.
+    ///
+    /// The `category` field is a subcategory (e.g. `math_logic`, `swe`), while
+    /// the product/README groups are directory-level (`foundation`, `agent`,
+    /// `domain`, `safety`). The loader records the directory group in
+    /// `metadata.dataset_group`; this method also supports exact subcategory
+    /// aliases such as `coding`, `math`, `data`.
+    pub fn filter_by_group(&self, group: &str) -> Self {
+        let g = group.trim().to_lowercase();
+        let matches = |case: &TestCase| -> bool {
+            if g == "all" {
+                return true;
+            }
+            let top_level = matches!(g.as_str(), "foundation" | "agent" | "domain" | "safety");
+            if let Some(dataset_group) = case.metadata.get("dataset_group").and_then(|v| v.as_str())
+            {
+                if top_level {
+                    // A directory-level group is authoritative: do not let a
+                    // foundation `swe` case leak into the `agent` group merely
+                    // because both use category="swe".
+                    return dataset_group.eq_ignore_ascii_case(&g);
+                }
+                if dataset_group.eq_ignore_ascii_case(&g) {
+                    return true;
+                }
+            }
+            match g.as_str() {
+                "foundation" => matches!(
+                    case.category,
+                    Category::Foundation
+                        | Category::MathLogic
+                        | Category::Instruction
+                        | Category::StructuredOutput
+                        | Category::LongContext
+                        | Category::Multilingual
+                ),
+                "agent" => matches!(
+                    case.category,
+                    Category::Agent
+                        | Category::Swe
+                        | Category::Devops
+                        | Category::Security
+                        | Category::DataAnalyst
+                ),
+                "domain" => matches!(
+                    case.category,
+                    Category::Medical
+                        | Category::Legal
+                        | Category::Finance
+                        | Category::Science
+                        | Category::Humanities
+                ),
+                "safety" => matches!(case.category, Category::Safety),
+                "coding" | "swe" | "swe_bench" => matches!(case.category, Category::Swe),
+                "math" | "math_logic" => matches!(case.category, Category::MathLogic),
+                "data" | "data_analyst" | "sql" => matches!(case.category, Category::DataAnalyst),
+                "security" | "cybersecurity" => matches!(case.category, Category::Security),
+                "devops" | "sysadmin" => matches!(case.category, Category::Devops),
+                "medical" | "health" => matches!(case.category, Category::Medical),
+                "legal" | "law" => matches!(case.category, Category::Legal),
+                "finance" | "econ" => matches!(case.category, Category::Finance),
+                "science" | "natsci" => matches!(case.category, Category::Science),
+                "humanities" | "philosophy" => matches!(case.category, Category::Humanities),
+                "instruction" => matches!(case.category, Category::Instruction),
+                "structured" | "structured_output" => {
+                    matches!(case.category, Category::StructuredOutput)
+                }
+                "long_context" => matches!(case.category, Category::LongContext),
+                "multilingual" => matches!(case.category, Category::Multilingual),
+                other => case.category.as_str() == other,
+            }
+        };
+        Self {
+            name: format!("{}-group-{}", self.name, group),
+            description: self.description.clone(),
+            version: self.version.clone(),
+            test_cases: self
+                .test_cases
+                .iter()
+                .filter(|c| matches(c))
+                .cloned()
+                .collect(),
         }
     }
 
@@ -349,5 +463,46 @@ impl Dataset {
             version: self.version.clone(),
             test_cases: cases,
         }
+    }
+}
+
+#[cfg(test)]
+mod group_filter_tests {
+    use super::*;
+    use crate::dataset::DatasetLoader;
+    use std::path::PathBuf;
+
+    fn load_all() -> Dataset {
+        let root = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../datasets");
+        let mut dataset = Dataset::new("all");
+        let mut stack = vec![root];
+        while let Some(dir) = stack.pop() {
+            let Ok(entries) = std::fs::read_dir(&dir) else {
+                continue;
+            };
+            for entry in entries.flatten() {
+                let path = entry.path();
+                if path.is_dir() {
+                    stack.push(path);
+                } else if path.extension().and_then(|s| s.to_str()) == Some("jsonl") {
+                    dataset
+                        .test_cases
+                        .extend(DatasetLoader::load_from_jsonl(&path).unwrap().test_cases);
+                }
+            }
+        }
+        dataset
+    }
+
+    #[test]
+    fn group_counts_match_readme() {
+        let all = load_all();
+        assert_eq!(all.test_cases.len(), 1414);
+        assert_eq!(all.filter_by_group("foundation").test_cases.len(), 964);
+        assert_eq!(all.filter_by_group("agent").test_cases.len(), 100);
+        assert_eq!(all.filter_by_group("domain").test_cases.len(), 150);
+        assert_eq!(all.filter_by_group("safety").test_cases.len(), 200);
+        assert_eq!(all.filter_by_group("all").test_cases.len(), 1414);
+        assert!(!all.filter_by_group("foundation").test_cases.is_empty());
     }
 }

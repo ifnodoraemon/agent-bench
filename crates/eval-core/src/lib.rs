@@ -4,6 +4,7 @@ pub mod metrics;
 pub mod model;
 pub mod prompts;
 pub mod reporter;
+pub mod sandbox;
 pub mod verifier;
 
 pub use dataset::{Category, Dataset, DatasetLoader, EvaluationType, TestCase};
@@ -18,6 +19,7 @@ pub use model::{
     TokenUsage, ToolCall, ToolDefinition,
 };
 pub use prompts::{PromptCatalog, PromptTemplate};
+pub use sandbox::{ExecOutput, ExecRequest, Sandbox};
 pub use verifier::{
     evaluate_baseline_drift, get_all_baselines, get_official_baseline, resolve_canonical_id,
     BaselineDriftReport, BenchmarkMetric, DriftMetricComparison, DriftStatus, ModelVerifier,

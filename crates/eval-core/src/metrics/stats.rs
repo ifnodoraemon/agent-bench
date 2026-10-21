@@ -1,5 +1,4 @@
 use crate::dataset::Category;
-use crate::metrics::EloCalculator;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
@@ -60,19 +59,19 @@ pub struct ModelBenchmarkSummary {
     pub canonical_name: Option<String>,
     pub total_cases: usize,
     pub passed_cases: usize,
-    pub overall_accuracy: f64,          // Micro-Average Accuracy
-    pub overall_score: f64,             // Micro-Average Soft Score
-    pub macro_accuracy: f64,            // Macro-Average (Equal-weight per category)
-    pub macro_score: f64,               // Macro-Average Soft Score
-    pub weighted_composite_index: f64,  // Calibrated Difficulty Weighted Index (0-100)
+    pub overall_accuracy: f64,         // Micro-Average Accuracy
+    pub overall_score: f64,            // Micro-Average Soft Score
+    pub macro_accuracy: f64,           // Macro-Average (Equal-weight per category)
+    pub macro_score: f64,              // Macro-Average Soft Score
+    pub weighted_composite_index: f64, // Calibrated Difficulty Weighted Index (0-100)
     #[serde(default = "default_elo")]
-    pub elo_rating: f64,                // Dynamic ELO Battle Rating
+    pub elo_rating: f64, // Dynamic ELO Battle Rating
     #[serde(default)]
-    pub efficiency_index: f64,          // Throughput & Latency Efficiency Score
+    pub efficiency_index: f64, // Throughput & Latency Efficiency Score
     #[serde(default)]
     pub tier_accuracy: HashMap<String, f64>, // L1 ~ L5 Tier Accuracy Breakdown
     #[serde(default)]
-    pub l4_l5_frontier_accuracy: f64,   // Extreme/Frontier Difficulty Accuracy (L4 + L5)
+    pub l4_l5_frontier_accuracy: f64, // Extreme/Frontier Difficulty Accuracy (L4 + L5)
     pub avg_latency_ms: f64,
     pub p95_latency_ms: f64,
     pub avg_ttft_ms: Option<f64>,
@@ -94,18 +93,54 @@ struct ChannelRule {
 }
 
 static CHANNEL_RULES: &[ChannelRule] = &[
-    ChannelRule { channel: "硅基流动 (SiliconFlow)", keywords: &["silicon"] },
-    ChannelRule { channel: "火山方舟 (Volcengine)", keywords: &["volc", "ark", "ep-"] },
-    ChannelRule { channel: "OpenRouter", keywords: &["openrouter"] },
-    ChannelRule { channel: "阿里云百炼 (DashScope)", keywords: &["dashscope", "bailian", "aliyun"] },
-    ChannelRule { channel: "Together AI", keywords: &["together"] },
-    ChannelRule { channel: "Groq (LPU)", keywords: &["groq"] },
-    ChannelRule { channel: "AWS Bedrock", keywords: &["bedrock"] },
-    ChannelRule { channel: "GCP Vertex AI", keywords: &["vertex"] },
-    ChannelRule { channel: "Azure AI Foundry", keywords: &["azure"] },
-    ChannelRule { channel: "GPUStack 企业算力", keywords: &["gpustack", "10.232."] },
-    ChannelRule { channel: "私有集群 (Self-Hosted/vLLM)", keywords: &["vllm", "sglang", "local", "ollama"] },
-    ChannelRule { channel: "模拟环境 (Mock Sandbox)", keywords: &["mock"] },
+    ChannelRule {
+        channel: "硅基流动 (SiliconFlow)",
+        keywords: &["silicon"],
+    },
+    ChannelRule {
+        channel: "火山方舟 (Volcengine)",
+        keywords: &["volc", "ep-"],
+    },
+    ChannelRule {
+        channel: "OpenRouter",
+        keywords: &["openrouter"],
+    },
+    ChannelRule {
+        channel: "阿里云百炼 (DashScope)",
+        keywords: &["dashscope", "bailian", "aliyun"],
+    },
+    ChannelRule {
+        channel: "Together AI",
+        keywords: &["together"],
+    },
+    ChannelRule {
+        channel: "Groq (LPU)",
+        keywords: &["groq"],
+    },
+    ChannelRule {
+        channel: "AWS Bedrock",
+        keywords: &["bedrock"],
+    },
+    ChannelRule {
+        channel: "GCP Vertex AI",
+        keywords: &["vertex"],
+    },
+    ChannelRule {
+        channel: "Azure AI Foundry",
+        keywords: &["azure"],
+    },
+    ChannelRule {
+        channel: "GPUStack 企业算力",
+        keywords: &["gpustack", "10.232."],
+    },
+    ChannelRule {
+        channel: "私有集群 (Self-Hosted/vLLM)",
+        keywords: &["vllm", "sglang", "local", "ollama"],
+    },
+    ChannelRule {
+        channel: "模拟环境 (Mock Sandbox)",
+        keywords: &["mock"],
+    },
 ];
 
 struct CanonicalDisplayRule {
@@ -115,33 +150,165 @@ struct CanonicalDisplayRule {
 }
 
 static CANONICAL_DISPLAY_RULES: &[CanonicalDisplayRule] = &[
-    // 2026 Flagship Frontier
-    CanonicalDisplayRule { display_name: "Claude-Opus-5.5", keywords: &["claude-opus-5.5", "claude-opus-5-5", "claude-5.5", "claude-5", "opus-5.5", "opus-5"], exclusions: &[] },
-    CanonicalDisplayRule { display_name: "GPT-6-Astra", keywords: &["gpt-6-astra", "gpt-6-sol", "gpt-6-luna", "gpt-6", "gpt6"], exclusions: &[] },
-    CanonicalDisplayRule { display_name: "Kimi-K3", keywords: &["kimi-k3", "kimi_k3", "kimik3", "kimi-3", "kimi3"], exclusions: &[] },
-    CanonicalDisplayRule { display_name: "Qwen-3.8-Max", keywords: &["qwen-3.8-max", "qwen-3.8", "qwen3.8", "qwen-3", "qwen3"], exclusions: &["qwq"] },
-    CanonicalDisplayRule { display_name: "Gemini-3.8-Flash", keywords: &["gemini-3.8", "gemini-3.1", "gemini-3", "gemini3"], exclusions: &[] },
-    CanonicalDisplayRule { display_name: "Llama-4-Maverick", keywords: &["llama-4-maverick", "llama-4-scout", "llama-4", "llama4"], exclusions: &[] },
-    // Earlier Families
-    CanonicalDisplayRule { display_name: "DeepSeek-V4", keywords: &["deepseek-v4", "deepseek_v4", "deepseekv4"], exclusions: &[] },
-    CanonicalDisplayRule { display_name: "DeepSeek-R1", keywords: &["deepseek-r1", "deepseek_r1", "deepseek-reasoner", "r1-distill"], exclusions: &[] },
-    CanonicalDisplayRule { display_name: "DeepSeek-V3", keywords: &["deepseek-v3", "deepseek-chat"], exclusions: &[] },
-    CanonicalDisplayRule { display_name: "Grok-3 / Grok-4", keywords: &["grok-3", "grok3", "grok-4", "grok4", "grok"], exclusions: &[] },
-    CanonicalDisplayRule { display_name: "Claude-3.7-Sonnet", keywords: &["claude-3-7", "claude-3.7", "claude-37"], exclusions: &["opus-5", "claude-5", "5.5"] },
-    CanonicalDisplayRule { display_name: "Claude-3.5-Sonnet", keywords: &["claude-3-5", "claude-3.5", "claude-35"], exclusions: &["opus-5", "claude-5", "5.5"] },
-    CanonicalDisplayRule { display_name: "OpenAI-o3-mini", keywords: &["o3-mini", "o3mini", "openai-o3", "o3"], exclusions: &[] },
-    CanonicalDisplayRule { display_name: "OpenAI-o1", keywords: &["o1-preview", "o1-mini", "openai-o1", "o1"], exclusions: &[] },
-    CanonicalDisplayRule { display_name: "GPT-4o-mini", keywords: &["gpt-4o-mini"], exclusions: &[] },
-    CanonicalDisplayRule { display_name: "GPT-4o", keywords: &["gpt-4o", "gpt4o", "gpt-5"], exclusions: &["gpt-6", "gpt6"] },
-    CanonicalDisplayRule { display_name: "QwQ-32B", keywords: &["qwq-32b", "qwq_32b", "qwq"], exclusions: &[] },
-    CanonicalDisplayRule { display_name: "Qwen-2.5-72B", keywords: &["qwen2.5-72b", "qwen-2.5-72b", "qwen-2.5"], exclusions: &["qwq", "qwen-3", "qwen3"] },
-    CanonicalDisplayRule { display_name: "GLM-5 / GLM-4", keywords: &["glm-5", "glm5", "glm-4", "glm4", "glm"], exclusions: &[] },
-    CanonicalDisplayRule { display_name: "Llama-3.3-70B", keywords: &["llama-3.3", "llama-3-3", "llama3.3"], exclusions: &["llama-4", "llama4"] },
-    CanonicalDisplayRule { display_name: "Gemini-2.0-Pro", keywords: &["gemini-2.0-pro", "gemini-2-pro"], exclusions: &["gemini-3", "gemini3"] },
-    CanonicalDisplayRule { display_name: "Gemini-2.0-Flash", keywords: &["gemini-2.0", "gemini-2"], exclusions: &["pro", "gemini-3", "gemini3"] },
-    CanonicalDisplayRule { display_name: "Gemini-1.5-Pro", keywords: &["gemini-1.5"], exclusions: &[] },
-    CanonicalDisplayRule { display_name: "Mock-Pro-v1", keywords: &["mock-pro"], exclusions: &[] },
-    CanonicalDisplayRule { display_name: "Mock-Fast-v1", keywords: &["mock-fast"], exclusions: &[] },
+    // Variant-specific rules must come before family rules.
+    CanonicalDisplayRule {
+        display_name: "DeepSeek-V4-Flash",
+        keywords: &["deepseek-v4-flash", "deepseek-v4_flash"],
+        exclusions: &[],
+    },
+    CanonicalDisplayRule {
+        display_name: "Qwen-3.8-27B",
+        keywords: &["qwen3.8-27b", "qwen-3.8-27b", "qwen3.8_27b"],
+        exclusions: &[],
+    },
+    CanonicalDisplayRule {
+        display_name: "GLM-5.2-FP8",
+        keywords: &["glm-5.2-fp8", "glm-5-2-fp8", "glm5.2-fp8"],
+        exclusions: &[],
+    },
+    // 2026 frontier families.
+    CanonicalDisplayRule {
+        display_name: "Claude-Opus-5.5",
+        keywords: &[
+            "claude-opus-5.5",
+            "claude-opus-5-5",
+            "claude-5.5",
+            "opus-5.5",
+            "opus-5",
+        ],
+        exclusions: &[],
+    },
+    CanonicalDisplayRule {
+        display_name: "GPT-6-Astra",
+        keywords: &["gpt-6-astra", "gpt-6-sol", "gpt-6-luna", "gpt-6", "gpt6"],
+        exclusions: &[],
+    },
+    CanonicalDisplayRule {
+        display_name: "Kimi-K3",
+        keywords: &["kimi-k3", "kimi_k3", "kimik3", "kimi-3", "kimi3"],
+        exclusions: &[],
+    },
+    CanonicalDisplayRule {
+        display_name: "GPT-5",
+        keywords: &["gpt-5"],
+        exclusions: &["gpt-6"],
+    },
+    CanonicalDisplayRule {
+        display_name: "Qwen-3.8-Max",
+        keywords: &["qwen-3.8-max", "qwen-3.8", "qwen3.8"],
+        exclusions: &["qwq"],
+    },
+    CanonicalDisplayRule {
+        display_name: "Gemini-3.8-Flash",
+        keywords: &["gemini-3.8-flash", "gemini-3.8", "gemini-3.1"],
+        exclusions: &[],
+    },
+    CanonicalDisplayRule {
+        display_name: "Llama-4-Maverick",
+        keywords: &["llama-4-maverick", "llama-4-scout", "llama-4", "llama4"],
+        exclusions: &[],
+    },
+    // Earlier families.
+    CanonicalDisplayRule {
+        display_name: "DeepSeek-V4",
+        keywords: &["deepseek-v4", "deepseek_v4", "deepseekv4"],
+        exclusions: &[],
+    },
+    CanonicalDisplayRule {
+        display_name: "DeepSeek-R1",
+        keywords: &[
+            "deepseek-r1",
+            "deepseek_r1",
+            "deepseek-reasoner",
+            "r1-distill",
+        ],
+        exclusions: &[],
+    },
+    CanonicalDisplayRule {
+        display_name: "DeepSeek-V3",
+        keywords: &["deepseek-v3", "deepseek-chat"],
+        exclusions: &[],
+    },
+    CanonicalDisplayRule {
+        display_name: "Grok-3 / Grok-4",
+        keywords: &["grok-3", "grok3", "grok-4", "grok4"],
+        exclusions: &[],
+    },
+    CanonicalDisplayRule {
+        display_name: "Claude-3.7-Sonnet",
+        keywords: &["claude-3-7", "claude-3.7", "claude-37"],
+        exclusions: &["opus-5", "5.5"],
+    },
+    CanonicalDisplayRule {
+        display_name: "Claude-3.5-Sonnet",
+        keywords: &["claude-3-5", "claude-3.5", "claude-35"],
+        exclusions: &["opus-5", "5.5"],
+    },
+    CanonicalDisplayRule {
+        display_name: "OpenAI-o3-mini",
+        keywords: &["o3-mini", "o3mini", "openai-o3"],
+        exclusions: &[],
+    },
+    CanonicalDisplayRule {
+        display_name: "OpenAI-o1",
+        keywords: &["o1-preview", "o1-mini", "openai-o1"],
+        exclusions: &[],
+    },
+    CanonicalDisplayRule {
+        display_name: "GPT-4o-mini",
+        keywords: &["gpt-4o-mini"],
+        exclusions: &[],
+    },
+    CanonicalDisplayRule {
+        display_name: "GPT-4o",
+        keywords: &["gpt-4o", "gpt4o"],
+        exclusions: &["gpt-6", "gpt6"],
+    },
+    CanonicalDisplayRule {
+        display_name: "QwQ-32B",
+        keywords: &["qwq-32b", "qwq_32b", "qwq"],
+        exclusions: &[],
+    },
+    CanonicalDisplayRule {
+        display_name: "Qwen-2.5-72B",
+        keywords: &["qwen2.5-72b", "qwen-2.5-72b", "qwen-2.5"],
+        exclusions: &["qwq", "qwen-3", "qwen3"],
+    },
+    CanonicalDisplayRule {
+        display_name: "GLM-5 / GLM-4",
+        keywords: &["glm-5.2", "glm5.2", "glm-5", "glm5", "glm-4", "glm4"],
+        exclusions: &[],
+    },
+    CanonicalDisplayRule {
+        display_name: "Llama-3.3-70B",
+        keywords: &["llama-3.3", "llama-3-3", "llama3.3"],
+        exclusions: &["llama-4", "llama4"],
+    },
+    CanonicalDisplayRule {
+        display_name: "Gemini-2.0-Pro",
+        keywords: &["gemini-2.0-pro", "gemini-2-pro"],
+        exclusions: &["gemini-3", "gemini3"],
+    },
+    CanonicalDisplayRule {
+        display_name: "Gemini-2.0-Flash",
+        keywords: &["gemini-2.0", "gemini-2"],
+        exclusions: &["pro", "gemini-3", "gemini3"],
+    },
+    CanonicalDisplayRule {
+        display_name: "Gemini-1.5-Pro",
+        keywords: &["gemini-1.5"],
+        exclusions: &[],
+    },
+    CanonicalDisplayRule {
+        display_name: "Mock-Pro-v1",
+        keywords: &["mock-pro"],
+        exclusions: &[],
+    },
+    CanonicalDisplayRule {
+        display_name: "Mock-Fast-v1",
+        keywords: &["mock-fast"],
+        exclusions: &[],
+    },
 ];
 
 struct TierRule {
@@ -158,18 +325,40 @@ static TIER_RULES: &[TierRule] = &[
     },
     TierRule {
         tier: "L4",
-        id_keywords: &["agent_", "sec_", "devops_", "swe_", "react_", "tool_", "error_"],
+        id_keywords: &[
+            "agent_", "sec_", "devops_", "swe_", "react_", "tool_", "error_",
+        ],
         categories: &["swe", "agent", "devops", "security", "data_analyst"],
     },
     TierRule {
         tier: "L3",
         id_keywords: &["med_", "law_", "legal_", "fin_", "math_"],
-        categories: &["medical", "legal", "finance", "science", "humanities", "math_logic"],
+        categories: &[
+            "medical",
+            "legal",
+            "finance",
+            "science",
+            "humanities",
+            "math_logic",
+        ],
     },
     TierRule {
         tier: "L2",
-        id_keywords: &["hum_", "sci_", "multi_", "needle_", "code_", "hallucination_"],
-        categories: &["code_generation", "multilingual", "instruction", "structured_output", "long_context"],
+        id_keywords: &[
+            "hum_",
+            "sci_",
+            "multi_",
+            "needle_",
+            "code_",
+            "hallucination_",
+        ],
+        categories: &[
+            "code_generation",
+            "multilingual",
+            "instruction",
+            "structured_output",
+            "long_context",
+        ],
     },
 ];
 
@@ -183,6 +372,15 @@ pub fn resolve_tier(test_case_id: &str, category: &str) -> &'static str {
         })
         .map(|r| r.tier)
         .unwrap_or("L1")
+}
+
+fn alias_matches(model: &str, keyword: &str) -> bool {
+    model == keyword
+        || model.starts_with(&format!("{keyword}-"))
+        || model.starts_with(&format!("{keyword}_"))
+        || model.starts_with(&format!("{keyword}."))
+        || model.contains(&format!("/{keyword}"))
+        || model.contains(&format!("/{keyword}-"))
 }
 
 pub fn resolve_canonical_and_channel(
@@ -206,8 +404,14 @@ pub fn resolve_canonical_and_channel(
     let canonical = CANONICAL_DISPLAY_RULES
         .iter()
         .find(|r| {
-            let matched = r.keywords.iter().any(|&k| lower_id.contains(k) || lower_name.contains(k));
-            let excluded = r.exclusions.iter().any(|&k| lower_id.contains(k) || lower_name.contains(k));
+            let matched = r
+                .keywords
+                .iter()
+                .any(|&k| alias_matches(&lower_id, k) || alias_matches(&lower_name, k));
+            let excluded = r
+                .exclusions
+                .iter()
+                .any(|&k| alias_matches(&lower_id, k) || alias_matches(&lower_name, k));
             matched && !excluded
         })
         .map(|r| r.display_name.to_string())
@@ -217,11 +421,7 @@ pub fn resolve_canonical_and_channel(
 }
 
 impl ModelBenchmarkSummary {
-    pub fn compute(
-        model_id: String,
-        model_name: String,
-        case_results: Vec<CaseResult>,
-    ) -> Self {
+    pub fn compute(model_id: String, model_name: String, case_results: Vec<CaseResult>) -> Self {
         let (canonical_name, channel) = resolve_canonical_and_channel(&model_id, &model_name, None);
         let total_cases = case_results.len();
         if total_cases == 0 {
@@ -262,8 +462,12 @@ impl ModelBenchmarkSummary {
         let total_completion_tokens = case_results.iter().map(|c| c.completion_tokens).sum();
         let total_cost_usd = case_results.iter().map(|c| c.cost_usd).sum();
 
-        let avg_latency_ms = case_results.iter().map(|c| c.latency_ms as f64).sum::<f64>() / total_cases as f64;
-        
+        let avg_latency_ms = case_results
+            .iter()
+            .map(|c| c.latency_ms as f64)
+            .sum::<f64>()
+            / total_cases as f64;
+
         let mut latencies: Vec<u64> = case_results.iter().map(|c| c.latency_ms).collect();
         latencies.sort_unstable();
         let p95_idx = ((latencies.len() as f64 * 0.95).ceil() as usize).saturating_sub(1);
@@ -276,7 +480,11 @@ impl ModelBenchmarkSummary {
             None
         };
 
-        let tps_values: Vec<f64> = case_results.iter().map(|c| c.tps).filter(|&t| t > 0.0).collect();
+        let tps_values: Vec<f64> = case_results
+            .iter()
+            .map(|c| c.tps)
+            .filter(|&t| t > 0.0)
+            .collect();
         let avg_tps = if !tps_values.is_empty() {
             tps_values.iter().sum::<f64>() / tps_values.len() as f64
         } else {
@@ -286,7 +494,10 @@ impl ModelBenchmarkSummary {
         // Category breakdown
         let mut cat_map: HashMap<String, Vec<&CaseResult>> = HashMap::new();
         for case in &case_results {
-            cat_map.entry(case.category.as_str().to_string()).or_default().push(case);
+            cat_map
+                .entry(case.category.as_str().to_string())
+                .or_default()
+                .push(case);
         }
 
         let mut category_summaries = HashMap::new();
@@ -294,7 +505,8 @@ impl ModelBenchmarkSummary {
             let cat_total = list.len();
             let cat_passed = list.iter().filter(|c| c.passed).count();
             let cat_avg_score = list.iter().map(|c| c.score).sum::<f64>() / cat_total as f64;
-            let cat_avg_lat = list.iter().map(|c| c.latency_ms as f64).sum::<f64>() / cat_total as f64;
+            let cat_avg_lat =
+                list.iter().map(|c| c.latency_ms as f64).sum::<f64>() / cat_total as f64;
             let cat_tps_list: Vec<f64> = list.iter().map(|c| c.tps).filter(|&t| t > 0.0).collect();
             let cat_avg_tps = if !cat_tps_list.is_empty() {
                 cat_tps_list.iter().sum::<f64>() / cat_tps_list.len() as f64
@@ -347,7 +559,10 @@ impl ModelBenchmarkSummary {
         let mut weighted_sum = 0.0;
         let mut weight_total = 0.0;
         for (cat_name, summary) in &category_summaries {
-            let w = domain_weights.get(cat_name.as_str()).cloned().unwrap_or(0.05);
+            let w = domain_weights
+                .get(cat_name.as_str())
+                .cloned()
+                .unwrap_or(0.05);
             weighted_sum += summary.avg_score * w;
             weight_total += w;
         }
@@ -368,9 +583,10 @@ impl ModelBenchmarkSummary {
         let mut l4_l5_total = 0;
 
         for case in &case_results {
-            let tier = case.difficulty.as_deref().unwrap_or_else(|| {
-                resolve_tier(&case.test_case_id, case.category.as_str())
-            });
+            let tier = case
+                .difficulty
+                .as_deref()
+                .unwrap_or_else(|| resolve_tier(&case.test_case_id, case.category.as_str()));
 
             let entry = tier_map.entry(tier.to_string()).or_insert((0, 0));
             entry.0 += 1;
@@ -428,46 +644,93 @@ impl ModelBenchmarkSummary {
         }
     }
 
-    /// Compute head-to-head Elo ratings across all evaluated models based on matching test cases
+    /// Compute head-to-head Elo ratings from pairwise win rates, then iterate
+    /// the rating updates until they converge. This is still a heuristic (not
+    /// human-vote Elo), but it is no longer dependent on pair iteration order.
     pub fn compute_head_to_head_elo(summaries: &mut [ModelBenchmarkSummary]) {
-        if summaries.len() < 2 {
+        let n = summaries.len();
+        if n < 2 {
             return;
         }
 
-        let elo = EloCalculator::new(24.0, 1200.0);
-        let n = summaries.len();
-
+        let mut pairs: Vec<(usize, usize, f64)> = Vec::new();
         for i in 0..n {
             for j in (i + 1)..n {
-                // Map cases of model j by ID for fast lookup
                 let map_b: HashMap<&str, &CaseResult> = summaries[j]
                     .case_results
                     .iter()
                     .map(|c| (c.test_case_id.as_str(), c))
                     .collect();
-
-                let mut rating_a = summaries[i].elo_rating;
-                let mut rating_b = summaries[j].elo_rating;
-
+                let mut total = 0usize;
+                let mut wins_a = 0.0f64;
                 for case_a in &summaries[i].case_results {
                     if let Some(case_b) = map_b.get(case_a.test_case_id.as_str()) {
-                        let score_a = if (case_a.score - case_b.score).abs() < 0.05 {
-                            0.5 // Tie
+                        total += 1;
+                        if (case_a.score - case_b.score).abs() < 0.05 {
+                            wins_a += 0.5;
                         } else if case_a.score > case_b.score {
-                            1.0 // Win A
-                        } else {
-                            0.0 // Win B
-                        };
-
-                        let (new_a, new_b) = elo.update_rating(rating_a, rating_b, score_a);
-                        rating_a = new_a;
-                        rating_b = new_b;
+                            wins_a += 1.0;
+                        }
                     }
                 }
-
-                summaries[i].elo_rating = rating_a;
-                summaries[j].elo_rating = rating_b;
+                // Very small overlaps are too noisy to rate.
+                if total >= 5 {
+                    pairs.push((i, j, wins_a / total as f64));
+                }
             }
         }
+        if pairs.is_empty() {
+            return;
+        }
+
+        let mut ratings = vec![1200.0f64; n];
+        for _ in 0..64 {
+            let mut delta = vec![0.0f64; n];
+            for &(i, j, score_a) in &pairs {
+                let expected_a = 1.0 / (1.0 + 10.0f64.powf((ratings[j] - ratings[i]) / 400.0));
+                let change = 24.0 * (score_a - expected_a);
+                delta[i] += change;
+                delta[j] -= change;
+            }
+            for i in 0..n {
+                ratings[i] += delta[i] / (n - 1) as f64;
+            }
+        }
+        for (summary, rating) in summaries.iter_mut().zip(ratings) {
+            summary.elo_rating = (rating * 10.0).round() / 10.0;
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn canon(id: &str) -> String {
+        resolve_canonical_and_channel(id, id, None).0
+    }
+
+    #[test]
+    fn variants_are_not_collapsed_into_flagships() {
+        assert_eq!(canon("qwen3.8-27b-fp8"), "Qwen-3.8-27B");
+        assert_eq!(canon("qwen-3.8-max-2026"), "Qwen-3.8-Max");
+        assert_eq!(canon("deepseek-v4-flash"), "DeepSeek-V4-Flash");
+        assert_eq!(canon("deepseek-v4-moe"), "DeepSeek-V4");
+        assert_eq!(canon("glm-5.2-fp8"), "GLM-5.2-FP8");
+        assert_eq!(canon("gpt-5-2026"), "GPT-5");
+        assert_eq!(canon("gpt-4o-mini"), "GPT-4o-mini");
+        assert_eq!(canon("claude-opus-5.5-20260922"), "Claude-Opus-5.5");
+    }
+
+    #[test]
+    fn unknown_models_keep_their_name() {
+        assert_eq!(canon("my-private-model"), "my-private-model");
+        assert_eq!(canon("spark-model"), "spark-model");
+    }
+
+    #[test]
+    fn channel_does_not_match_spark_as_volcengine() {
+        let (_, channel) = resolve_canonical_and_channel("spark-model", "spark-model", None);
+        assert_eq!(channel, "官方直连 (Official)");
     }
 }

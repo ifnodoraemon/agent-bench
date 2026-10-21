@@ -55,7 +55,11 @@ impl JsonSchemaEvaluator {
 
 #[async_trait]
 impl Evaluator for JsonSchemaEvaluator {
-    async fn evaluate(&self, test_case: &TestCase, response: &ModelResponse) -> Result<EvaluationResult> {
+    async fn evaluate(
+        &self,
+        test_case: &TestCase,
+        response: &ModelResponse,
+    ) -> Result<EvaluationResult> {
         let schema_val = match &test_case.schema {
             Some(s) => s,
             None => {

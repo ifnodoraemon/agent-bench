@@ -78,6 +78,10 @@ enum Commands {
         /// Output directory for results (JSON, Markdown, HTML)
         #[arg(short, long)]
         output_dir: Option<String>,
+
+        /// Run built-in mock models when no real model is configured (demo only)
+        #[arg(long = "mock", default_value_t = false)]
+        mock: bool,
     },
 
     /// Validate dataset JSON/JSONL format and schema integrity
@@ -100,6 +104,14 @@ enum Commands {
         #[arg(short = 'p', long = "port", default_value_t = 5173)]
         port: u16,
 
+        /// Bind address. Defaults to loopback only.
+        #[arg(long = "host", default_value = "127.0.0.1")]
+        host: String,
+
+        /// Access token. If omitted, a random token is generated and printed.
+        #[arg(long = "token")]
+        token: Option<String>,
+
         /// Path to a results JSON file or results/ directory to display
         #[arg(short = 'r', long = "results")]
         results: Option<String>,
@@ -107,6 +119,10 @@ enum Commands {
         /// Path to custom web/dist directory
         #[arg(long = "web-dist")]
         web_dist: Option<String>,
+
+        /// Permit web requests to override base_url/api_key/protocol. Disabled by default.
+        #[arg(long = "allow-custom-endpoints", default_value_t = false)]
+        allow_custom_endpoints: bool,
     },
 
     /// One-click model authenticity verification and anti-spoofing fingerprinting
@@ -168,6 +184,7 @@ async fn main() -> Result<()> {
             models,
             concurrency,
             output_dir,
+            mock,
         } => {
             commands::run::execute_run(
                 config,
@@ -184,6 +201,7 @@ async fn main() -> Result<()> {
                 models,
                 concurrency,
                 output_dir,
+                mock,
             )
             .await?;
         }
@@ -195,10 +213,21 @@ async fn main() -> Result<()> {
         }
         Commands::Dashboard {
             port,
+            host,
+            token,
             results,
             web_dist,
+            allow_custom_endpoints,
         } => {
-            commands::dashboard::execute(port, results, web_dist).await?;
+            commands::dashboard::execute(
+                port,
+                host,
+                token,
+                results,
+                web_dist,
+                allow_custom_endpoints,
+            )
+            .await?;
         }
         Commands::Verify {
             model,

@@ -21,10 +21,7 @@ impl AnthropicClient {
     pub fn new(config: ModelConfig) -> Result<Self> {
         let mut headers = HeaderMap::new();
         headers.insert(CONTENT_TYPE, HeaderValue::from_static("application/json"));
-        headers.insert(
-            "anthropic-version",
-            HeaderValue::from_static("2023-06-01"),
-        );
+        headers.insert("anthropic-version", HeaderValue::from_static("2023-06-01"));
         if let Some(ref key) = config.api_key {
             if !key.is_empty() {
                 headers.insert(
@@ -36,7 +33,10 @@ impl AnthropicClient {
 
         if let Some(ref custom_map) = config.custom_headers {
             for (k, v) in custom_map {
-                if let (Ok(hn), Ok(hv)) = (reqwest::header::HeaderName::from_bytes(k.as_bytes()), HeaderValue::from_str(v)) {
+                if let (Ok(hn), Ok(hv)) = (
+                    reqwest::header::HeaderName::from_bytes(k.as_bytes()),
+                    HeaderValue::from_str(v),
+                ) {
                     headers.insert(hn, hv);
                 }
             }
@@ -91,7 +91,9 @@ impl AnthropicClient {
             match resp_result {
                 Ok(resp) => {
                     let status = resp.status();
-                    if (status.as_u16() == 429 || status.is_server_error()) && attempts < max_attempts {
+                    if (status.as_u16() == 429 || status.is_server_error())
+                        && attempts < max_attempts
+                    {
                         tokio::time::sleep(delay).await;
                         delay *= 2;
                         continue;
@@ -108,7 +110,9 @@ impl AnthropicClient {
                         delay *= 2;
                         continue;
                     }
-                    return Err(anyhow!("Anthropic network request failed after {attempts} attempts: {e}"));
+                    return Err(anyhow!(
+                        "Anthropic network request failed after {attempts} attempts: {e}"
+                    ));
                 }
             }
         }
@@ -127,7 +131,7 @@ impl ModelClient for AnthropicClient {
         tools: Option<&[ToolDefinition]>,
     ) -> Result<ModelResponse> {
         let mut system_prompt = String::new();
-        let mut anthropic_messages = Vec::new();
+        let mut anthropic_messages: Vec<serde_json::Value> = Vec::new();
 
         for m in messages {
             match m.role {
@@ -138,25 +142,92 @@ impl ModelClient for AnthropicClient {
                     system_prompt.push_str(&m.content);
                 }
                 Role::User => {
+                    let text_block = json!({ "type": "text", "text": m.content });
+                    // A user text message immediately after tool results must be
+                    // appended to the same user turn; Anthropic requires
+                    // alternating assistant/user turns.
+                    if let Some(last) = anthropic_messages.last_mut() {
+                        if last.get("role").and_then(|r| r.as_str()) == Some("user")
+                            && last
+                                .get("content")
+                                .and_then(|c| c.as_array())
+                                .map(|a| {
+                                    a.iter().any(|b| {
+                                        b.get("type").and_then(|t| t.as_str())
+                                            == Some("tool_result")
+                                    })
+                                })
+                                .unwrap_or(false)
+                        {
+                            if let Some(arr) =
+                                last.get_mut("content").and_then(|c| c.as_array_mut())
+                            {
+                                arr.push(text_block);
+                                continue;
+                            }
+                        }
+                    }
                     anthropic_messages.push(json!({
                         "role": "user",
-                        "content": m.content
+                        "content": [text_block]
                     }));
                 }
                 Role::Assistant => {
+                    let mut blocks = Vec::new();
+                    if !m.content.is_empty() {
+                        blocks.push(json!({ "type": "text", "text": m.content }));
+                    }
+                    if let Some(tcs) = &m.tool_calls {
+                        for tc in tcs {
+                            let input =
+                                serde_json::from_str::<serde_json::Value>(&tc.function.arguments)
+                                    .unwrap_or_else(|_| json!({}));
+                            blocks.push(json!({
+                                "type": "tool_use",
+                                "id": tc.id,
+                                "name": tc.function.name,
+                                "input": input
+                            }));
+                        }
+                    }
+                    if blocks.is_empty() {
+                        blocks.push(json!({ "type": "text", "text": "" }));
+                    }
                     anthropic_messages.push(json!({
                         "role": "assistant",
-                        "content": m.content
+                        "content": blocks
                     }));
                 }
                 Role::Tool => {
+                    let result_block = json!({
+                        "type": "tool_result",
+                        "tool_use_id": m.tool_call_id.clone().unwrap_or_default(),
+                        "content": m.content
+                    });
+                    if let Some(last) = anthropic_messages.last_mut() {
+                        if last.get("role").and_then(|r| r.as_str()) == Some("user")
+                            && last
+                                .get("content")
+                                .and_then(|c| c.as_array())
+                                .map(|a| {
+                                    a.iter().any(|b| {
+                                        b.get("type").and_then(|t| t.as_str())
+                                            == Some("tool_result")
+                                    })
+                                })
+                                .unwrap_or(false)
+                        {
+                            if let Some(arr) =
+                                last.get_mut("content").and_then(|c| c.as_array_mut())
+                            {
+                                arr.push(result_block);
+                                continue;
+                            }
+                        }
+                    }
                     anthropic_messages.push(json!({
                         "role": "user",
-                        "content": [{
-                            "type": "tool_result",
-                            "tool_use_id": m.tool_call_id.clone().unwrap_or_default(),
-                            "content": m.content
-                        }]
+                        "content": [result_block]
                     }));
                 }
             }
@@ -214,7 +285,9 @@ impl ModelClient for AnthropicClient {
                         tracing::info!("Gracefully salvaging Anthropic response despite SSE stream termination: {err}");
                         break;
                     } else {
-                        return Err(anyhow::anyhow!("Anthropic SSE stream interrupted before content received: {err}"));
+                        return Err(anyhow::anyhow!(
+                            "Anthropic SSE stream interrupted before content received: {err}"
+                        ));
                     }
                 }
             };
@@ -229,7 +302,10 @@ impl ModelClient for AnthropicClient {
                 "message_start" => {
                     if let Some(msg) = parsed.get("message") {
                         if let Some(usage) = msg.get("usage") {
-                            prompt_tokens = usage.get("input_tokens").and_then(|t| t.as_u64()).unwrap_or(0) as u32;
+                            prompt_tokens = usage
+                                .get("input_tokens")
+                                .and_then(|t| t.as_u64())
+                                .unwrap_or(0) as u32;
                         }
                     }
                 }
@@ -239,8 +315,16 @@ impl ModelClient for AnthropicClient {
                     }
                     if let Some(block) = parsed.get("content_block") {
                         if block.get("type").and_then(|t| t.as_str()) == Some("tool_use") {
-                            current_tool_id = block.get("id").and_then(|i| i.as_str()).unwrap_or_default().to_string();
-                            current_tool_name = block.get("name").and_then(|n| n.as_str()).unwrap_or_default().to_string();
+                            current_tool_id = block
+                                .get("id")
+                                .and_then(|i| i.as_str())
+                                .unwrap_or_default()
+                                .to_string();
+                            current_tool_name = block
+                                .get("name")
+                                .and_then(|n| n.as_str())
+                                .unwrap_or_default()
+                                .to_string();
                             current_tool_input.clear();
                         }
                     }
@@ -252,7 +336,9 @@ impl ModelClient for AnthropicClient {
                     if let Some(delta) = parsed.get("delta") {
                         if let Some(text) = delta.get("text").and_then(|t| t.as_str()) {
                             full_text.push_str(text);
-                        } else if let Some(partial_json) = delta.get("partial_json").and_then(|pj| pj.as_str()) {
+                        } else if let Some(partial_json) =
+                            delta.get("partial_json").and_then(|pj| pj.as_str())
+                        {
                             current_tool_input.push_str(partial_json);
                         }
                     }
@@ -274,7 +360,10 @@ impl ModelClient for AnthropicClient {
                 }
                 "message_delta" => {
                     if let Some(usage) = parsed.get("usage") {
-                        completion_tokens = usage.get("output_tokens").and_then(|t| t.as_u64()).unwrap_or(0) as u32;
+                        completion_tokens = usage
+                            .get("output_tokens")
+                            .and_then(|t| t.as_u64())
+                            .unwrap_or(0) as u32;
                     }
                 }
                 _ => {}
@@ -294,7 +383,11 @@ impl ModelClient for AnthropicClient {
         Ok(ModelResponse {
             text: full_text,
             reasoning_content: None,
-            tool_calls: if tool_calls.is_empty() { None } else { Some(tool_calls) },
+            tool_calls: if tool_calls.is_empty() {
+                None
+            } else {
+                Some(tool_calls)
+            },
             usage: TokenUsage {
                 prompt_tokens,
                 completion_tokens,

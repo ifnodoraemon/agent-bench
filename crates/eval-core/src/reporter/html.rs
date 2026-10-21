@@ -118,8 +118,8 @@ impl HtmlReporter {
                     <td><span class="token-in">{}</span> / <span class="token-out">{}</span></td>
                 </tr>"#,
                     rank_badge,
-                    s.model_name,
-                    s.model_id,
+                    escape_html(&s.model_name),
+                    escape_html(&s.model_id),
                     s.elo_rating,
                     acc_class,
                     acc_pct,
@@ -145,7 +145,7 @@ impl HtmlReporter {
         HTML_TEMPLATE
             .replace("__NOW__", &now)
             .replace("__TOTAL_MODELS__", &total_models.to_string())
-            .replace("__BEST_MODEL_NAME__", best_model_name)
+            .replace("__BEST_MODEL_NAME__", &escape_html(best_model_name))
             .replace("__BEST_ACCURACY__", &best_accuracy)
             .replace("__FASTEST_TTFT__", &fastest_ttft_str)
             .replace("__MAX_TPS__", &max_tps_str)
@@ -1319,3 +1319,10 @@ __SUMMARIES_JSON__
 </body>
 </html>"##;
 
+fn escape_html(text: &str) -> String {
+    text.replace('&', "&amp;")
+        .replace('<', "&lt;")
+        .replace('>', "&gt;")
+        .replace('"', "&quot;")
+        .replace('\'', "&#39;")
+}

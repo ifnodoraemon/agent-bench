@@ -1,6 +1,8 @@
-# 🦀 agent-bench: 全维度大模型与 Agent 评测基准套件
+# 🦀 agent-bench: 可扩展的大模型与 Agent 评测框架
 
-`agent-bench` 是一个基于 **Rust** 开发的高性能、模块化的大语言模型与智能体综合能力评测系统，内置全方位大模型真伪鉴别、防套壳审讯与官方权威基准漂移量化审计引擎。
+`agent-bench` 是一个基于 **Rust** 的模块化评测框架，包含多协议模型适配、Agent 轨迹执行、规则/Judge 判定、报告导出和 Vue 3 可视化大屏。
+
+> **定位说明**：这是一个工程化评测框架/可视化原型，不是“官方权威认证系统”。内置探针、基线库和数据集都有明确局限；请阅读文末的 [限制与诚实声明](#限制与诚实声明)。
 
 <div align="center">
   <img src="docs/images/dashboard_dark.png" alt="agent-bench Dashboard Dark Preview" width="100%" />
@@ -12,90 +14,182 @@
   <img src="docs/images/dashboard_light.png" alt="agent-bench Dashboard Light Preview" width="100%" />
 </details>
 
-## ✨ 核心特性
+## ✨ 核心能力
 
-- **🎯 全维度硬核评测覆盖 (1,009 道深度用例，22 个专业数据集，274 道 L4/L5 极限难题)**：
-  - **智能体能力 (Agentic - 344 题)**：SWE-bench 真实编程修复与特性开发 (74题)、单步/多步工具调用 (55题)、环境报错自我反思纠错 (50题)、DevOps 与自动化运维排障 (50题)、Multi-turn ReAct 规划与工具链执行 (35题)、网络安全与漏洞攻防 (30题)、多源数据与日志分析 (25题)、开放式智能体问题求解 (25题)。
-  - **基础与推理 (Foundation - 305 题)**：代码生成与沙箱执行 (75题)、高阶数学定理推理 (75题)、IFEval 严格多约束指令遵循 (50题)、复杂 JSON Schema 提取 (45题)、大海捞针长上下文检索 (30题)、多语言与跨文化理解 (30题)。
-  - **专业垂类能力 (Domain - 250 题)**：临床医学与生命科学 (50题)、司法法规与合规研判 (50题)、金融量化与宏观经济 (50题)、自然科学深层分析 (50题)、人文社科与伦理哲学 (50题)。
-  - **安全与鲁棒性 (Safety - 110 题)**：对抗性 Prompt 注入与越狱抵御 (55题)、反事实常识与抗幻觉陷阱 (35题)、隐私保护与 PII 敏感信息防泄露 (20题)。
-- **🛡️ 原生大模型验真与防套壳审计引擎 (Strict Zero-Fallback)**：
-  - **高敏静态指纹探针**：毫秒级探测模型原生创作者声明、分词器字符陷阱、代数直觉抑制、浮点尾数量化污染（INT4/AWQ 识别）、中转商隐藏 System Prompt 渗透。
-  - **对抗审讯智能体 (`--agentic`)**：动态生成自适应认知陷阱与多轮审讯质询（Cross-Examination），精确测算模型阿谀奉承指数（Sycophancy Index）与真实度评级。
-  - **权威基准偏离审计**：自动对标原厂技术论文与官方评测卡（SWE-bench Verified, MATH-500, IFEval, LiveCodeBench, LMSYS 等）。严格遵循**零隐式兜底机制**，未收录模型真实标记，杜绝静默假阳性。
-- **⚖️ 丰富判定引擎 & LLM Trajectory Judge**：
-  - **Agent 轨迹大模型裁判 (LLM-as-a-Judge for Trajectories)**：多轮交互步骤、工具选择准确性、参数精度、规划逻辑性与反思纠错能力的自动化专家打分。
-  - **精确匹配、正则表达式、JSON Schema 校验、Python/Rust 代码执行沙箱**。
-  - 支持 LLM-as-a-Judge 自动对齐判定与位置偏见消除、Pairwise 对抗与 **Elo 竞技场积分** 计算。
-- **⚡ 高并发与精准度量**：
-  - 基于 Tokio 异步多线程架构，流式（SSE）毫秒级捕获 **TTFT (Time to First Token)** 与 **TPS (Tokens/s)**。
-  - 自动统计 Token 消耗量及单次/总体调用成本 ($ USD)。
-- **📊 交互式可视化大屏 & 报告导出**：
-  - 内置基于 Vue 3 + Vite 的高性能多维度可视化大屏，支持多渠道同模型同构横评、实时流水线流式调度、AI 验真诊断雷达图及 Markdown/JSON 报告一键导出。
-
----
+- **10 个公开 benchmark 数据文件 / 1,414 条用例（v2）**：
+  - Foundation 964：MATH-500 300、GSM8K 150、HumanEval 164、MBPP 150、MMLU-Pro 150、LongBench 50。
+  - Agent 100：BFCL v4 simple_python 单轮函数调用（适配为函数名/参数匹配判定）。
+  - Domain 150：MMLU 医学/法律/金融/科学/人文各 30。
+  - Safety 200：TruthfulQA 100、HarmBench 100。
+  - 真实 Web/SQLite 工具已实现：`search_web` 需 `AGENT_BENCH_SEARCH_ENDPOINT`；`database_query` 查询 workspace 内只读 SQLite。
+  - 难度按数据源/抽样规则标注：L2 400、L3 585、L4 205、L5 224；L4+L5 共 **429** 条。
+  - 每条用例带 `metadata.source_dataset/source_revision/license/official_metric`；`datasets/MANIFEST.json` 记录来源 URL、revision、许可、SHA256、抽样种子。
+  - 数据由 `tools/build_public_datasets.py` 可复现生成；是公开 benchmark 的**抽样子集**，不是全量官方 leaderboard。
+- **Agent 执行**：Bash/文件/grep/calculator、只读 SQLite 查询、配置化 SearXNG 搜索、多轮 ReAct、工具轨迹记录、测试命令验证、轨迹 Judge。
+  - `database_query` 在 workspace 内真实 SQLite（默认 `data/bench.db`）执行只读 SELECT/WITH；拒绝写、ATTACH、PRAGMA 和路径逃逸。
+  - `search_web` 只在显式设置 `AGENT_BENCH_SEARCH_ENDPOINT`（SearXNG 兼容 JSON）时工作；未配置直接报错，不返回假结果。
+- **多协议适配**：OpenAI Chat Completions、OpenAI Responses、Anthropic Messages、Gemini、Mock。
+- **隔离执行**：
+  - Linux 下使用 **bubblewrap (`bwrap`)**：host 根只读、仅 workspace 可写、无网络、独立 PID/mount/user namespace、清空环境变量、进程组超时 kill。
+  - CodeExecution 同样在 bwrap 中运行，并阻断 `sys.exit`/`os._exit` 跳过测试的路径。
+  - 未安装 bwrap 时默认拒绝执行；只有显式设置 `AGENT_BENCH_ALLOW_UNSANDBOXED=1` 才会降级运行（不建议）。
+- **判分**：
+  - exact_match 只接受精确匹配或数值等价，**不做子串匹配**。
+  - regex 支持 `metadata.must_not_match` 负约束。
+  - LLM Judge 使用独立 system prompt、不可信数据边界和 JSON 校验；解析失败直接失败，不做关键词猜测。
+  - 硬规则失败不会再被 Judge “翻盘”。
+- **多信号证据核验（不是“正品认证”）**：
+  - 6 个固定探针 + 4 个动态对抗探针 + 2 次交叉审讯 + 可选的 GSM8K/MMLU 小样本 benchmark 交叉核验。
+  - 输出统一 `signals[]` 证据矩阵与 `evidence_score`；裁定只有 `Consistent / Suspicious / Inconclusive / HighRisk`，不再输出 `Authentic`。
+  - 可选独立 LLM auditor 只提供点评，不改变确定性通过/失败；公开 benchmark 小样本是能力证据，不是身份证明。
+  - 未生成 verified 基线漂移时 **不伪造“实测基线分”**；基线库中 `verified=false` 的条目只展示、不参与判定。
+- **可视化大屏**：排行榜、模型/渠道对比、用例检查、Pareto、雷达图、实时运行。
+  - 默认绑定 `127.0.0.1`，启动时生成访问 token；浏览器通过 HttpOnly + SameSite=Strict Cookie 认证。
+  - 默认禁止 Web 请求覆盖 `base_url/api_key/protocol`；如确需自定义端点，启动时加 `--allow-custom-endpoints`，且自定义 `base_url` 必须同时提供显式 `api_key`，Web 请求不允许 `env:` 形式。
+- **报告**：JSON / Markdown / HTML（数据内嵌；图表依赖 CDN，离线时图表不可用）。
 
 ## 🚀 快速上手
 
-### 1. 编译构建
+### 1. 依赖
+
+- Rust 1.80+（workspace 使用 edition 2021）
+- Linux + `bubblewrap`（Agent/CodeExecution 沙箱）
+- Python 3（运行 Python 任务/测试）
+- Node 18+（仅构建前端时需要）
+
 ```bash
+# Debian/Ubuntu
+sudo apt-get install bubblewrap python3
 cargo build --release
 ```
 
-### 2. 验证评测数据集 (全 22 个数据源完整性自检)
+### 2. 校验数据集（CI 门禁）
+
 ```bash
+cargo run --bin agent-bench -- validate datasets
+# 有错误时返回非 0；当前仓库 1,414 条应返回 0。
+```
+
+### 3. 配置真实模型
+
+`eval_config.toml` 被 `.gitignore` 忽略，需要从示例复制：
+
+```bash
+cp eval_config.example.toml eval_config.toml
+# 编辑 models/judge，并把密钥放在环境变量里：
+export OPENAI_API_KEY=...
+export ANTHROPIC_API_KEY=...
+```
+
+### 真实工具配置（可选）
+
+```bash
+# 真实搜索：只访问这个由运维配置的 SearXNG 兼容 JSON 端点；未配置时工具明确报错，不返回 fixture。
+export AGENT_BENCH_SEARCH_ENDPOINT=http://127.0.0.1:8080/search
+export AGENT_BENCH_SEARCH_API_KEY=optional-bearer-token
+
+# SQLite：每个 workspace 初始化 data/bench.db（users/orders 样例表），database_query 用只读连接执行 SELECT/WITH。
+```
+
+数据再生成（需要网络、`datasets`/`huggingface_hub`）：
+
+```bash
+python3 tools/build_public_datasets.py --out datasets
 cargo run --bin agent-bench -- validate datasets
 ```
 
-### 3. 运行评测
+`[judge]` 是可选的；没有 judge 时：
+- `llm_judge` 类型会失败并给出明确原因（不会回退到 exact_match）；
+- `agent_trajectory` 中依赖 criteria 的主观题按规则评分为 0；
+- 代码/数学等硬规则题仍可独立评测。
+
+### 4. 运行评测
+
 ```bash
-# 使用配置文件运行多模型评测
+# 全量评测
 cargo run --bin agent-bench -- run --config eval_config.toml
 
-# 过滤特定类别 (如仅评测 agent 智能体能力)
-cargo run --bin agent-bench -- run --category agent --concurrency 5
+# 过滤类别 / 难度 / 评测类型
+cargo run --bin agent-bench -- run --config eval_config.toml --category agent --limit 20
+cargo run --bin agent-bench -- run --config eval_config.toml --category foundation --limit 20
+cargo run --bin agent-bench -- run --config eval_config.toml --frontier --limit 20
+cargo run --bin agent-bench -- run --config eval_config.toml --eval-type multiple_choice
+cargo run --bin agent-bench -- run --config eval_config.toml --eval-type tool_call
+cargo run --bin agent-bench -- run --config eval_config.toml --eval-type code_execution
 
-# 仅评测 L4/L5 极限难题 (Frontier Challenges: Olympiad, PhD, SWE-Hard)
-cargo run --bin agent-bench -- run --frontier --limit 20
+# 无配置时的显式 Demo（不会静默用 mock 冒充真实模型）
+cargo run --bin agent-bench -- run --mock --limit 20
 
-# 仅评测指定评测类型 (如 agent_trajectory 或 exact_match)
-cargo run --bin agent-bench -- run --eval-type agent_trajectory
+# 断点续跑：读取旧结果，重跑失败用例，并把新结果合并回原模型结果
+cargo run --bin agent-bench -- run --config eval_config.toml \
+  --resume-failed results/eval_results_YYYYMMDD_HHMMSS.json
 
-# 断点续评 / 仅重跑上次失败或报错的用例
-cargo run --bin agent-bench -- run --resume-failed results/eval_results_20260926_004057.json
-
-# 随机抽样 20% 测试集快速验证
-cargo run --bin agent-bench -- run --sample-ratio 0.2 --seed 42
-
-# 指定评测特定模型 (2026 最新旗舰)
-cargo run --bin agent-bench -- run --models claude-opus-5-5,gpt-6-astra,kimi-k3,qwen-3-8-max,gemini-3-8-flash
+# 随机抽样
+cargo run --bin agent-bench -- run --config eval_config.toml --sample-ratio 0.2 --seed 42
 ```
 
-### 4. 历史结果对比与 Elo 排行榜
+- 多模型并发有一个全局 `concurrency` 上限（不是每模型各一份）。
+- 某个模型失败时会先保存成功模型的结果，然后以非 0 退出；不会再静默丢弃失败模型。
+- `--resume-failed` 要求结果文件存在且可解析；找不到会直接报错。
+
+### 5. 历史结果与 Elo
+
 ```bash
-# 对比 results 目录下的历史评测，自动去重聚合计算 Elo 天梯分与胜率矩阵
 cargo run --bin agent-bench -- compare results/
 ```
 
-### 5. 启动交互式可视化大屏 (Vue 3 Dashboard)
+Elo 是“同题逐题比较”的粗略分，不是人类投票 Elo；不同运行集/不同题集之间的分数不可直接比较，且结果对题目顺序敏感。仅作参考。
+
+### 6. 可视化大屏
+
 ```bash
-# 启动本地大屏服务 (默认端口 5173，自动加载 results/ 历史评测与提供实时在线调度 API)
-cargo run --bin agent-bench -- dashboard --results results/ --port 5173
+cargo run --bin agent-bench -- dashboard --port 5173 --results results/
 ```
 
-### 6. 一键模型验真与防套壳深度审计 (Verify & Anti-Spoofing)
-```bash
-# 毫秒级静态高敏探针指纹校验 (DeepSeek-V4/R1 原生 think 标签与反直觉代数验真)
-cargo run --bin agent-bench -- verify -m deepseek-v4 -t DeepSeek-V4
+启动后终端会打印：
 
-# 启动 LLM 对抗审讯 Agent（动态诱饵 + 专家伪造异议抗压质询 + 阿谀奉承度度量）
-cargo run --bin agent-bench -- verify -m claude-opus-5-5 -t Claude-Opus-5.5 --agentic
-
-# 覆盖自定义网关与凭证 (支持 env:VAR 解析) 并输出 JSON 凭证 (供 CI/CD 阻断拦截)
-cargo run --bin agent-bench -- verify -m custom-endpoint -t GPT-6-Astra --base-url env:CUSTOM_BASE_URL --api-key env:CUSTOM_KEY --json
+```text
+http://127.0.0.1:5173/?token=<一次性令牌>
 ```
 
----
+- 默认只监听 `127.0.0.1`；`--host 0.0.0.0` 会扩大暴露面，请自行加防火墙/反代。
+- 打开带 token 的 URL 后，服务端写入 HttpOnly Cookie 并 302 到 `/`。
+- API 还支持 `X-Auth-Token`/`Authorization: Bearer <token>`（便于 curl）。
+- 默认拒绝跨站 POST，且响应不再带 `Access-Control-Allow-Origin: *`。
+- 自定义端点：`dashboard --allow-custom-endpoints`；Web 请求不允许 `api_key=env:...`，且自定义 base_url 必须显式给 api_key，避免把服务端配置密钥转发到任意 URL。
+
+### 7. 模型验真
+
+```bash
+# 静态探针（确定性；不会伪造 baseline drift）
+cargo run --bin agent-bench -- verify -c eval_config.toml \
+  -m deepseek-v4 -t DeepSeek-V4 --json
+
+# 动态对抗 + 可选 LLM 点评（使用 config 中的 [judge]）
+cargo run --bin agent-bench -- verify -c eval_config.toml \
+  -m claude-opus-5-5 -t Claude-Opus-5.5 --agentic
+
+# 无配置文件时显式用 mock 演示
+cargo run --bin agent-bench -- verify -m mock-pro -t DeepSeek-R1 --json
+```
+
+再次强调：探针通过只是“该端点能正确回答这些固定题”的弱证据，**不能证明没有被中转商伪造**；它也不是密码学证明。
+
+### 8. 测试
+
+```bash
+cargo test --workspace
+cargo clippy --workspace --all-targets
+cargo fmt --all -- --check
+```
+
+前端：
+
+```bash
+cd web
+npm install
+npm run build
+```
 
 ## 📁 目录结构
 
@@ -103,17 +197,35 @@ cargo run --bin agent-bench -- verify -m custom-endpoint -t GPT-6-Astra --base-u
 agent-bench/
 ├── Cargo.toml
 ├── crates/
-│   ├── eval-core/        # 统一 Provider 适配器、数据加载、判定引擎、指标统计、报告生成、权威基线
-│   ├── eval-agent/       # Agent 模拟交互环境 (Bash/Web/DB)、多轮 Trajectory 追踪、AI 验真审讯 Agent
-│   ├── eval-suites/      # 评测套件编排器 (并发调度、Judge 分流)
-│   └── eval-cli/         # 命令行界面、Dashboard Web 服务与验真 CLI
-├── datasets/             # 内置各维度测试用例 (JSONL - 1,009 题)
-│   ├── agent/            # 智能体任务 (Coding, DevOps, Security, ReAct, Error Recovery...)
-│   ├── domain/           # 垂类高阶专业 (Medical, Legal, Finance, Science, Philosophy)
-│   ├── foundation/       # 基础与推理 (Code, Math, Instruction, Multi-lingual, Schema)
-│   └── safety/           # 安全与鲁棒 (Jailbreak, Hallucination, Privacy)
-├── web/                  # Vue 3 + Vite 可视化大屏前端
-│   ├── src/components/   # 评测排行榜、多渠道比对、AI 验真控制台、实时评测调度器等
-│   └── dist/             # 预编译静态前端资产
+│   ├── eval-core/        # Provider、数据加载、判定、指标、报告、沙箱、基线
+│   ├── eval-agent/       # 工具执行、workspace、轨迹、动态对抗审计
+│   ├── eval-suites/      # 并发编排、取消、部分失败、Elo
+│   └── eval-cli/         # CLI、Dashboard Web 服务、验真命令
+├── datasets/             # 10 个公开 JSONL（1,414 条）+ MANIFEST/README
+├── web/                  # Vue 3 + Vite 大屏
 └── eval_config.example.toml
 ```
+
+## 🔐 安全边界
+
+- 沙箱边界：`bwrap` namespace + 只读 host + 仅 workspace 可写 + 无网络 + 环境变量白名单 + 进程组 kill。
+- 文件 API 边界：拒绝绝对路径、`..`、反斜杠、NUL、symlink 组件；写入使用 `O_NOFOLLOW`。
+- 测试完整性：数据集中的 test 文件在验证前从快照恢复；验证后校验未被修改；移除 `unittest.py`/`conftest.py` 等影子模块。
+- Dashboard：token + HttpOnly SameSite Cookie + 同源检查 + 路径 canonicalize + 1MB body 上限 + 连接数上限。
+- 真实工具边界：`database_query` 只读且限制在 workspace；`search_web` 只访问运维配置的端点，不接受模型提供 URL；沙箱内 `bash` 仍默认断网。
+- 仍然存在的风险：同一用户下的并发 case 共享 `/tmp`；bwrap 依赖宿主内核/发行版；自定义端点模式是有意放宽；LLM Judge/审计本身不可信；静态探针不能证明身份。
+
+## 限制与诚实声明
+
+1. **数据是公开 benchmark 的抽样子集，不是全量官方 leaderboard**：HumanEval/MBPP/MMLU/MMLU-Pro/TruthfulQA/GSM8K/MATH-500/LongBench/HarmBench/BFCL 均记录来源、许可、版本和哈希；MATH-500、LongBench、HarmBench 使用 LLM Judge 适配，BFCL 使用函数名/参数匹配适配，不能直接对标官方分数；IFEval 尚未接入。
+2. **难度是启发式**：L2–L5 按来源/ID 规则标注，已写入 `difficulty` 字段以保证筛选与统计一致；不是人工校准的认知难度。当前 L4+L5 = 429；总计 1,414 条（含 BFCL L2 100 条）。
+3. **验真不是认证**：自报身份、固定探针、动态题都可以被中转商针对性适配；`verified=false` 的基线不做漂移判定；没有运行 benchmark 时绝不生成“实测基线分”。
+4. **Judge 不是 ground truth**：LLM Judge 可能被注入、偏好冗长答案或给出不一致分数；代码中已加边界/校验/成本记录，但仍需人工抽检。
+5. **Elo/Composite 是参考指标**：加权、Elo、efficiency index 都是启发式；不同题集/运行之间不可直接比较。
+6. **真实 Web/SQLite 工具的边界**：`search_web` 需要运维配置 `AGENT_BENCH_SEARCH_ENDPOINT`（SearXNG 兼容 JSON），未配置时明确报错、不返回 fixture；`database_query` 只允许 workspace 内 SQLite 的只读 SELECT/WITH（默认 `data/bench.db`），不支持写/ATTACH/PRAGMA。
+7. **前端**：不再在 API 失败时生成模拟验真报告，也不再合成渠道数据；基线库从 `/api/baselines` 加载，并显示 `verified` 标记。若后端不可用，页面显示错误/空态，而不是伪造数据。
+8. **长上下文/指令遵循**：v2 的 LongBench 子集是约 4.5k–202k 字符真实长文（中位约 51k），使用 LLM-judge 适配，不是 128k/1M 上下文压力测试；IFEval 尚未接入，指令遵循类别暂缺。
+9. **Agentic 覆盖有限**：仅接入 BFCL v4 simple_python 100 条单轮函数调用；不含并行/多轮/缺参/无关函数等 BFCL 子集，也不是完整 Agent 环境。
+10. **公开数据许可**：数据集许可见 `datasets/MANIFEST.json` 与 `datasets/README.md`；MATH-500 的 HF card 未声明许可，按上游 MATH 的 MIT 记录，再分发前请自行核对上游条款。
+
+如果这些限制对你的使用场景不可接受，请先扩展数据集、替换验真方法、接入真实 benchmark，再把本工具用于采购/验收。

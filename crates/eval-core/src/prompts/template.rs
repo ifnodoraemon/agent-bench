@@ -9,7 +9,11 @@ pub struct PromptTemplate {
 }
 
 impl PromptTemplate {
-    pub const fn new(name: &'static str, template: &'static str, description: &'static str) -> Self {
+    pub const fn new(
+        name: &'static str,
+        template: &'static str,
+        description: &'static str,
+    ) -> Self {
         Self {
             name,
             template,

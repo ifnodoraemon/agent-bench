@@ -30,7 +30,10 @@ impl GeminiClient {
 
         if let Some(ref custom_map) = config.custom_headers {
             for (k, v) in custom_map {
-                if let (Ok(hn), Ok(hv)) = (reqwest::header::HeaderName::from_bytes(k.as_bytes()), HeaderValue::from_str(v)) {
+                if let (Ok(hn), Ok(hv)) = (
+                    reqwest::header::HeaderName::from_bytes(k.as_bytes()),
+                    HeaderValue::from_str(v),
+                ) {
                     headers.insert(hn, hv);
                 }
             }
@@ -64,24 +67,25 @@ impl GeminiClient {
         input_cost + output_cost
     }
 
-    async fn send_request_with_retry(&self, url: &str, body: &serde_json::Value) -> Result<reqwest::Response> {
+    async fn send_request_with_retry(
+        &self,
+        url: &str,
+        body: &serde_json::Value,
+    ) -> Result<reqwest::Response> {
         let mut attempts = 0;
         let max_attempts = 3;
         let mut delay = Duration::from_millis(500);
 
         loop {
             attempts += 1;
-            let resp_result = self
-                .http_client
-                .post(url)
-                .json(body)
-                .send()
-                .await;
+            let resp_result = self.http_client.post(url).json(body).send().await;
 
             match resp_result {
                 Ok(resp) => {
                     let status = resp.status();
-                    if (status.as_u16() == 429 || status.is_server_error()) && attempts < max_attempts {
+                    if (status.as_u16() == 429 || status.is_server_error())
+                        && attempts < max_attempts
+                    {
                         tokio::time::sleep(delay).await;
                         delay *= 2;
                         continue;
@@ -98,7 +102,9 @@ impl GeminiClient {
                         delay *= 2;
                         continue;
                     }
-                    return Err(anyhow!("Gemini network request failed after {attempts} attempts: {e}"));
+                    return Err(anyhow!(
+                        "Gemini network request failed after {attempts} attempts: {e}"
+                    ));
                 }
             }
         }
@@ -140,8 +146,7 @@ impl ModelClient for GeminiClient {
                     if let Some(ref tcs) = m.tool_calls {
                         for tc in tcs {
                             let args_val: serde_json::Value =
-                                serde_json::from_str(&tc.function.arguments)
-                                    .unwrap_or(json!({}));
+                                serde_json::from_str(&tc.function.arguments).unwrap_or(json!({}));
                             parts.push(json!({
                                 "functionCall": {
                                     "name": tc.function.name,
@@ -156,7 +161,10 @@ impl ModelClient for GeminiClient {
                     }));
                 }
                 Role::Tool => {
-                    let name = m.name.clone().unwrap_or_else(|| "tool_response".to_string());
+                    let name = m
+                        .name
+                        .clone()
+                        .unwrap_or_else(|| "tool_response".to_string());
                     contents.push(json!({
                         "role": "function",
                         "parts": [{
@@ -237,7 +245,9 @@ impl ModelClient for GeminiClient {
                         tracing::info!("Gracefully salvaging Gemini response despite SSE stream termination: {err}");
                         break;
                     } else {
-                        return Err(anyhow::anyhow!("Gemini SSE stream interrupted before content received: {err}"));
+                        return Err(anyhow::anyhow!(
+                            "Gemini SSE stream interrupted before content received: {err}"
+                        ));
                     }
                 }
             };
@@ -270,8 +280,15 @@ impl ModelClient for GeminiClient {
                                     if first_token_time.is_none() {
                                         first_token_time = Some(start_time.elapsed());
                                     }
-                                    let fn_name = fc.get("name").and_then(|n| n.as_str()).unwrap_or_default().to_string();
-                                    let fn_args = fc.get("args").map(|a| a.to_string()).unwrap_or_else(|| "{}".to_string());
+                                    let fn_name = fc
+                                        .get("name")
+                                        .and_then(|n| n.as_str())
+                                        .unwrap_or_default()
+                                        .to_string();
+                                    let fn_args = fc
+                                        .get("args")
+                                        .map(|a| a.to_string())
+                                        .unwrap_or_else(|| "{}".to_string());
                                     tool_calls.push(ToolCall {
                                         id: format!("call_gemini_{}", tool_calls.len()),
                                         tool_type: "function".to_string(),
@@ -309,7 +326,11 @@ impl ModelClient for GeminiClient {
         Ok(ModelResponse {
             text: full_text,
             reasoning_content: None,
-            tool_calls: if tool_calls.is_empty() { None } else { Some(tool_calls) },
+            tool_calls: if tool_calls.is_empty() {
+                None
+            } else {
+                Some(tool_calls)
+            },
             usage: TokenUsage {
                 prompt_tokens,
                 completion_tokens,

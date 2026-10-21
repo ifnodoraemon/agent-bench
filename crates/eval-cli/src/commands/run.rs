@@ -1,7 +1,7 @@
 use crate::config::ConfigFile;
 use anyhow::{Context, Result};
 use chrono::Local;
-use eval_core::dataset::{Category, Dataset, DatasetLoader};
+use eval_core::dataset::{Dataset, DatasetLoader};
 use eval_core::metrics::ModelBenchmarkSummary;
 use eval_core::model::create_client;
 use eval_core::reporter::{HtmlReporter, MarkdownReporter, TerminalReporter};
@@ -44,6 +44,7 @@ pub async fn execute_run(
     models_override: Option<Vec<String>>,
     concurrency_override: Option<usize>,
     output_dir_override: Option<String>,
+    allow_mock: bool,
 ) -> Result<()> {
     // 1. Load config file if available, or use defaults
     let config = if let Some(path) = config_path {
@@ -114,28 +115,7 @@ pub async fn execute_run(
 
     // Apply filtering
     if let Some(cat_str) = filter_category {
-        let cat = match cat_str.to_lowercase().as_str() {
-            "foundation" => Category::Foundation,
-            "agent" => Category::Agent,
-            "safety" => Category::Safety,
-            "swe" | "coding" => Category::Swe,
-            "devops" | "sysadmin" => Category::Devops,
-            "security" | "cybersecurity" => Category::Security,
-            "data" | "data_analyst" | "sql" => Category::DataAnalyst,
-            "math" | "math_logic" => Category::MathLogic,
-            "multilingual" => Category::Multilingual,
-            "long_context" => Category::LongContext,
-            "instruction" => Category::Instruction,
-            "structured" | "structured_output" => Category::StructuredOutput,
-            "medical" | "health" | "med" => Category::Medical,
-            "legal" | "law" => Category::Legal,
-            "finance" | "fin" | "econ" => Category::Finance,
-            "science" | "natsci" => Category::Science,
-            "humanities" | "history" | "philosophy" => Category::Humanities,
-            "performance" => Category::Performance,
-            other => Category::Custom(other.to_string()),
-        };
-        combined_dataset = combined_dataset.filter_by_category(&cat);
+        combined_dataset = combined_dataset.filter_by_group(&cat_str);
     }
     if let Some(ref tag) = filter_tag {
         combined_dataset = combined_dataset.filter_by_tag(tag);
@@ -153,32 +133,40 @@ pub async fn execute_run(
             eprintln!("⚠️ Unknown evaluation type: '{et_str}'. Valid types: exact_match, regex, json_schema, code_execution, llm_judge, agent_trajectory");
         }
     }
+    let mut resume_original: Vec<ModelBenchmarkSummary> = Vec::new();
     if let Some(ref resume_path) = resume_failed {
         let path = Path::new(resume_path);
-        if path.exists() {
-            let content = fs::read_to_string(path)
-                .with_context(|| format!("Failed to read resume results file: {resume_path}"))?;
-            let mut failed_ids = std::collections::HashSet::new();
-            if let Ok(summaries) = serde_json::from_str::<Vec<ModelBenchmarkSummary>>(&content) {
-                for s in summaries {
-                    for c in s.case_results {
-                        if !c.passed || c.error.is_some() {
-                            failed_ids.insert(c.test_case_id);
-                        }
-                    }
-                }
-            } else if let Ok(single) = serde_json::from_str::<ModelBenchmarkSummary>(&content) {
-                for c in single.case_results {
+        if !path.exists() {
+            anyhow::bail!("Resume file not found: {resume_path}");
+        }
+        let content = fs::read_to_string(path)
+            .with_context(|| format!("Failed to read resume results file: {resume_path}"))?;
+        let mut failed_ids = std::collections::HashSet::new();
+        if let Ok(summaries) = serde_json::from_str::<Vec<ModelBenchmarkSummary>>(&content) {
+            for s in &summaries {
+                for c in &s.case_results {
                     if !c.passed || c.error.is_some() {
-                        failed_ids.insert(c.test_case_id);
+                        failed_ids.insert(c.test_case_id.clone());
                     }
                 }
             }
-            println!("🔁 Resuming: isolated {} failed/errored test cases from '{}'", failed_ids.len(), path.display());
-            combined_dataset = combined_dataset.filter_by_ids(&failed_ids);
+            resume_original = summaries;
+        } else if let Ok(single) = serde_json::from_str::<ModelBenchmarkSummary>(&content) {
+            for c in &single.case_results {
+                if !c.passed || c.error.is_some() {
+                    failed_ids.insert(c.test_case_id.clone());
+                }
+            }
+            resume_original.push(single);
         } else {
-            eprintln!("⚠️ Resume file not found: {resume_path}");
+            anyhow::bail!("Resume file is not a valid benchmark result: {resume_path}");
         }
+        println!(
+            "🔁 Resuming: isolated {} failed/errored test cases from '{}'",
+            failed_ids.len(),
+            path.display()
+        );
+        combined_dataset = combined_dataset.filter_by_ids(&failed_ids);
     }
     if let Some(ratio) = sample_ratio {
         combined_dataset = combined_dataset.sample(ratio, seed);
@@ -193,21 +181,28 @@ pub async fn execute_run(
     );
 
     if combined_dataset.test_cases.is_empty() {
-        println!("⚠️ Dataset is empty after filtering. Exiting.");
-        return Ok(());
+        anyhow::bail!("Dataset is empty after filtering. Check --category/--difficulty/--tag/--resume filters.");
     }
 
     // 3. Resolve target models
     let mut model_profiles = config.models.clone();
     if let Some(overrides) = models_override {
         if !overrides.is_empty() {
-            model_profiles.retain(|m| overrides.contains(&m.id) || overrides.contains(&m.model_name));
+            model_profiles
+                .retain(|m| overrides.contains(&m.id) || overrides.contains(&m.model_name));
         }
     }
 
-    // If no models defined in config, create a default mock model for demonstration
+    // Never silently substitute mock models for a real benchmark.
     if model_profiles.is_empty() {
-        println!("ℹ️ No models configured in eval_config.toml. Using built-in Mock models for evaluation test.");
+        if !allow_mock {
+            anyhow::bail!(
+                "No models configured. Copy eval_config.example.toml to eval_config.toml and fill in your endpoints, or pass --mock for a demo run."
+            );
+        }
+        println!(
+            "ℹ️ --mock: using built-in Mock models. These results are not real model measurements."
+        );
         let mut mock1 = eval_core::model::ModelConfig::new("mock-pro", "mock", "Mock-Pro-v1");
         mock1.price_per_input_million = Some(0.5);
         mock1.price_per_output_million = Some(1.5);
@@ -220,9 +215,22 @@ pub async fn execute_run(
         let c2 = eval_core::model::create_client(mock2)?;
 
         let orchestrator = BenchmarkOrchestrator::new(concurrency);
-        let summaries = orchestrator.run_all_models_parallel(vec![c1, c2], &combined_dataset).await?;
-
+        let outcomes = orchestrator
+            .run_all_models_parallel(vec![c1, c2], &combined_dataset)
+            .await?;
+        let (summaries, failures) = split_outcomes(outcomes);
+        if summaries.is_empty() {
+            anyhow::bail!("All mock model evaluations failed.");
+        }
+        let summaries = merge_resume_summaries(summaries, &resume_original);
         save_and_display_results(&summaries, &output_dir, &config.benchmark)?;
+        if !failures.is_empty() {
+            anyhow::bail!(
+                "{} model(s) failed: {}",
+                failures.len(),
+                failures.join(", ")
+            );
+        }
         return Ok(());
     }
 
@@ -246,16 +254,91 @@ pub async fn execute_run(
         clients.push(client);
     }
 
-    println!("\n🚀 Launching parallel matrix benchmark on {} models concurrently...", clients.len());
+    println!(
+        "\n🚀 Launching parallel matrix benchmark on {} models concurrently...",
+        clients.len()
+    );
     for profile in &model_profiles {
         println!("  • [{}] {}", profile.id, profile.model_name);
     }
     println!();
 
-    let summaries = orchestrator.run_all_models_parallel(clients, &combined_dataset).await?;
+    let outcomes = orchestrator
+        .run_all_models_parallel(clients, &combined_dataset)
+        .await?;
+    let (summaries, failures) = split_outcomes(outcomes);
+    if summaries.is_empty() {
+        anyhow::bail!("All model evaluations failed.");
+    }
+    let summaries = merge_resume_summaries(summaries, &resume_original);
 
+    // Persist successful models first; then report the failed models with a
+    // non-zero exit so CI cannot mistake a partial matrix for a complete one.
     save_and_display_results(&summaries, &output_dir, &config.benchmark)?;
+    if !failures.is_empty() {
+        anyhow::bail!(
+            "{} model(s) failed and were not written as complete results: {}",
+            failures.len(),
+            failures.join(", ")
+        );
+    }
     Ok(())
+}
+
+fn split_outcomes(
+    outcomes: Vec<(String, anyhow::Result<ModelBenchmarkSummary>)>,
+) -> (Vec<ModelBenchmarkSummary>, Vec<String>) {
+    let mut summaries = Vec::new();
+    let mut failures = Vec::new();
+    for (model_id, outcome) in outcomes {
+        match outcome {
+            Ok(summary) => summaries.push(summary),
+            Err(err) => {
+                eprintln!("❌ Model '{model_id}' failed: {err}");
+                failures.push(model_id);
+            }
+        }
+    }
+    (summaries, failures)
+}
+
+fn merge_resume_summaries(
+    mut new_summaries: Vec<ModelBenchmarkSummary>,
+    original: &[ModelBenchmarkSummary],
+) -> Vec<ModelBenchmarkSummary> {
+    if original.is_empty() {
+        return new_summaries;
+    }
+    for original_summary in original {
+        if let Some(new_summary) = new_summaries
+            .iter_mut()
+            .find(|s| s.model_id == original_summary.model_id)
+        {
+            let mut by_id: std::collections::HashMap<String, eval_core::metrics::CaseResult> =
+                original_summary
+                    .case_results
+                    .iter()
+                    .map(|c| (c.test_case_id.clone(), c.clone()))
+                    .collect();
+            for case in &new_summary.case_results {
+                by_id.insert(case.test_case_id.clone(), case.clone());
+            }
+            let mut merged_cases: Vec<_> = original_summary
+                .case_results
+                .iter()
+                .filter_map(|c| by_id.remove(&c.test_case_id))
+                .collect();
+            merged_cases.extend(by_id.into_values());
+            *new_summary = ModelBenchmarkSummary::compute(
+                new_summary.model_id.clone(),
+                new_summary.model_name.clone(),
+                merged_cases,
+            );
+        } else {
+            new_summaries.push(original_summary.clone());
+        }
+    }
+    new_summaries
 }
 
 fn save_and_display_results(

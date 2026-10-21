@@ -33,7 +33,10 @@ impl OpenAIResponsesClient {
 
         if let Some(ref custom_map) = config.custom_headers {
             for (k, v) in custom_map {
-                if let (Ok(hn), Ok(hv)) = (HeaderName::from_bytes(k.as_bytes()), HeaderValue::from_str(v)) {
+                if let (Ok(hn), Ok(hv)) = (
+                    HeaderName::from_bytes(k.as_bytes()),
+                    HeaderValue::from_str(v),
+                ) {
                     headers.insert(hn, hv);
                 }
             }
@@ -90,7 +93,9 @@ impl OpenAIResponsesClient {
             match resp_result {
                 Ok(resp) => {
                     let status = resp.status();
-                    if (status.as_u16() == 429 || status.is_server_error()) && attempts < max_attempts {
+                    if (status.as_u16() == 429 || status.is_server_error())
+                        && attempts < max_attempts
+                    {
                         tokio::time::sleep(delay).await;
                         delay *= 2;
                         continue;
@@ -107,7 +112,9 @@ impl OpenAIResponsesClient {
                         delay *= 2;
                         continue;
                     }
-                    return Err(anyhow!("Network request failed after {attempts} attempts: {e}"));
+                    return Err(anyhow!(
+                        "Network request failed after {attempts} attempts: {e}"
+                    ));
                 }
             }
         }
@@ -143,10 +150,23 @@ impl ModelClient for OpenAIResponsesClient {
                     }));
                 }
                 Role::Assistant => {
-                    input_items.push(json!({
-                        "role": "assistant",
-                        "content": m.content
-                    }));
+                    if !m.content.is_empty() {
+                        input_items.push(json!({
+                            "type": "message",
+                            "role": "assistant",
+                            "content": [{ "type": "output_text", "text": m.content }]
+                        }));
+                    }
+                    if let Some(tcs) = &m.tool_calls {
+                        for tc in tcs {
+                            input_items.push(json!({
+                                "type": "function_call",
+                                "call_id": tc.id,
+                                "name": tc.function.name,
+                                "arguments": tc.function.arguments
+                            }));
+                        }
+                    }
                 }
                 Role::Tool => {
                     input_items.push(json!({
@@ -205,7 +225,8 @@ impl ModelClient for OpenAIResponsesClient {
             let event = match event_res {
                 Ok(ev) => ev,
                 Err(err) => {
-                    if !full_text.is_empty() || !reasoning_text.is_empty() || !tool_calls.is_empty() {
+                    if !full_text.is_empty() || !reasoning_text.is_empty() || !tool_calls.is_empty()
+                    {
                         tracing::info!("Gracefully salvaging OpenAI Responses output despite SSE stream termination: {err}");
                         break;
                     } else {
@@ -239,22 +260,45 @@ impl ModelClient for OpenAIResponsesClient {
                 if let Some(delta) = parsed.get("delta").and_then(|d| d.as_str()) {
                     reasoning_text.push_str(delta);
                 }
-            } else if event_type == "response.output_item.added" || event_type == "response.output_item.done" {
+            } else if event_type == "response.output_item.added"
+                || event_type == "response.output_item.done"
+            {
                 if let Some(item) = parsed.get("item") {
                     let item_type = item.get("type").and_then(|t| t.as_str()).unwrap_or("");
                     if item_type == "function_call" {
                         if first_token_time.is_none() {
                             first_token_time = Some(start_time.elapsed());
                         }
-                        let call_id = item.get("call_id").and_then(|id| id.as_str()).unwrap_or("").to_string();
-                        let fn_name = item.get("name").and_then(|n| n.as_str()).unwrap_or("").to_string();
-                        let fn_args = item.get("arguments").map(|a| {
-                            if a.is_string() { a.as_str().unwrap().to_string() } else { a.to_string() }
-                        }).unwrap_or_else(|| "{}".to_string());
+                        let call_id = item
+                            .get("call_id")
+                            .and_then(|id| id.as_str())
+                            .unwrap_or("")
+                            .to_string();
+                        let fn_name = item
+                            .get("name")
+                            .and_then(|n| n.as_str())
+                            .unwrap_or("")
+                            .to_string();
+                        let fn_args = item
+                            .get("arguments")
+                            .map(|a| {
+                                if a.is_string() {
+                                    a.as_str().unwrap().to_string()
+                                } else {
+                                    a.to_string()
+                                }
+                            })
+                            .unwrap_or_else(|| "{}".to_string());
 
-                        if !fn_name.is_empty() && !tool_calls.iter().any(|tc: &ToolCall| tc.id == call_id) {
+                        if !fn_name.is_empty()
+                            && !tool_calls.iter().any(|tc: &ToolCall| tc.id == call_id)
+                        {
                             tool_calls.push(ToolCall {
-                                id: if call_id.is_empty() { format!("call_{}", tool_calls.len()) } else { call_id },
+                                id: if call_id.is_empty() {
+                                    format!("call_{}", tool_calls.len())
+                                } else {
+                                    call_id
+                                },
                                 tool_type: "function".to_string(),
                                 function: FunctionCall {
                                     name: fn_name,
@@ -305,7 +349,11 @@ impl ModelClient for OpenAIResponsesClient {
             } else {
                 Some(reasoning_text)
             },
-            tool_calls: if tool_calls.is_empty() { None } else { Some(tool_calls) },
+            tool_calls: if tool_calls.is_empty() {
+                None
+            } else {
+                Some(tool_calls)
+            },
             usage: TokenUsage {
                 prompt_tokens,
                 completion_tokens,

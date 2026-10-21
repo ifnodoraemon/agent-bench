@@ -12,7 +12,10 @@ fn test_real_subprocess_bash_sandbox() {
 
     // 1. Test real bash execution in sandbox
     let res = env
-        .execute_tool("bash", r#"{"command": "echo 'Hello from real sandbox' > test.txt && cat test.txt"}"#)
+        .execute_tool(
+            "bash",
+            r#"{"command": "echo 'Hello from real sandbox' > test.txt && cat test.txt"}"#,
+        )
         .unwrap();
     assert!(res.contains("Hello from real sandbox"));
 
@@ -36,7 +39,10 @@ fn test_trajectory_evaluator_5_dimensional_scoring() {
         turn: 1,
         model_thought: "I will run the unittest".to_string(),
         tool_calls: Some(vec![tool_call]),
-        tool_results: Some(vec![("call_123".to_string(), "OK (Ran 2 tests)".to_string())]),
+        tool_results: Some(vec![(
+            "call_123".to_string(),
+            "OK (Ran 2 tests)".to_string(),
+        )]),
         latency_ms: 50,
         error: None,
     };
@@ -128,7 +134,8 @@ async fn test_trajectory_evaluator_with_llm_judge() {
     };
 
     let judge_client: Arc<dyn eval_core::model::ModelClient> = mock_judge;
-    let eval_res = TrajectoryEvaluator::evaluate_with_judge(&tc, &trajectory, Some(&judge_client)).await;
+    let eval_res =
+        TrajectoryEvaluator::evaluate_with_judge(&tc, &trajectory, Some(&judge_client)).await;
     assert!(eval_res.passed);
     assert_eq!(eval_res.score, 0.93);
     assert!(eval_res.reason.contains("Agent LLM-Judge"));
@@ -155,3 +162,37 @@ fn test_workspace_git_and_file_inspection() {
     assert!(diff.contains("+  port: 9090"));
 }
 
+#[test]
+fn test_rule_based_agent_without_tools_fails() {
+    let tc = TestCase {
+        id: "empty_agent".to_string(),
+        name: None,
+        category: Category::Agent,
+        difficulty: Some("L4".to_string()),
+        tags: vec![],
+        prompt: "do the task".to_string(),
+        system_prompt: None,
+        reference_answer: Some("done".to_string()),
+        eval_type: EvaluationType::AgentTrajectory,
+        criteria: None,
+        schema: None,
+        test_code: None,
+        tools: None,
+        max_turns: Some(2),
+        metadata: HashMap::new(),
+    };
+    let trajectory = AgentTrajectory {
+        task_id: "empty_agent".to_string(),
+        steps: vec![],
+        final_answer: Some("done".to_string()),
+        total_turns: 0,
+        completed: true,
+        total_duration: std::time::Duration::from_millis(1),
+        prompt_tokens: 0,
+        completion_tokens: 0,
+        estimated_cost_usd: 0.0,
+    };
+    let res = TrajectoryEvaluator::evaluate(&tc, &trajectory);
+    assert!(!res.passed);
+    assert!(res.reason.contains("no steps"));
+}

@@ -1,4 +1,4 @@
-use eval_agent::{get_pi_tools, WorkspaceEnv, SimulatedEnvironment};
+use eval_agent::{get_pi_tools, SimulatedEnvironment, WorkspaceEnv};
 use std::collections::HashMap;
 
 #[test]
@@ -19,7 +19,10 @@ fn test_pi_tools_workspace_operations() {
 
     // 2. Test read_file
     let read_res = ws
-        .execute_tool("read_file", r#"{"path": "src/calculator.py", "offset": 1, "limit": 10}"#)
+        .execute_tool(
+            "read_file",
+            r#"{"path": "src/calculator.py", "offset": 1, "limit": 10}"#,
+        )
         .unwrap();
     assert!(read_res.contains("return a - b"));
 
@@ -49,7 +52,10 @@ fn test_pi_tools_workspace_operations() {
         )
         .unwrap();
     assert!(write_res.contains("Successfully written"));
-    assert_eq!(ws.read_file("notes.md").unwrap(), "Header line\nProject Notes");
+    assert_eq!(
+        ws.read_file("notes.md").unwrap(),
+        "Header line\nProject Notes"
+    );
 
     // 6. Test bash execution
     let bash_res = ws
@@ -78,4 +84,50 @@ fn test_get_pi_tools_definitions() {
     assert!(names.contains(&"calculator"));
     assert!(names.contains(&"search_web"));
     assert!(names.contains(&"database_query"));
+}
+
+#[test]
+fn test_real_sqlite_database_query_and_write_rejection() {
+    let ws = WorkspaceEnv::new().unwrap();
+
+    let out = ws
+        .execute_tool(
+            "database_query",
+            r#"{"query": "SELECT name, balance FROM users ORDER BY id"}"#,
+        )
+        .unwrap();
+    assert!(out.contains("Alice"), "output={out}");
+    assert!(out.contains("5000"), "output={out}");
+    assert!(out.contains("columns"), "output={out}");
+
+    let write = ws.execute_tool(
+        "database_query",
+        r#"{"query": "DELETE FROM users WHERE id = 1"}"#,
+    );
+    assert!(write.is_err(), "write query must be rejected");
+
+    let missing = ws.execute_tool(
+        "database_query",
+        r#"{"query": "SELECT * FROM users", "database": "../etc/passwd"}"#,
+    );
+    assert!(
+        missing.is_err(),
+        "path traversal database path must be rejected"
+    );
+}
+
+#[test]
+fn test_search_web_requires_operator_endpoint() {
+    if std::env::var_os("AGENT_BENCH_SEARCH_ENDPOINT").is_some() {
+        return; // Environment explicitly configured; covered by integration use.
+    }
+    let ws = WorkspaceEnv::new().unwrap();
+    let err = ws
+        .execute_tool("search_web", r#"{"query": "rust tokio"}"#)
+        .unwrap_err()
+        .to_string();
+    assert!(
+        err.contains("AGENT_BENCH_SEARCH_ENDPOINT"),
+        "unexpected error: {err}"
+    );
 }

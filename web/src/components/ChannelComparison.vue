@@ -43,8 +43,12 @@
     <!-- Official Ground Truth Baseline Anchor Banner -->
     <div v-if="activeOfficialBaseline" class="official-baseline-banner">
       <div class="ob-left">
-        <div class="ob-tag">🏛️ 原厂官方公布基准锚点 (Official Technical Report Baseline)</div>
-        <div class="ob-title">{{ activeOfficialBaseline.display_name }} · {{ activeOfficialBaseline.vendor }}</div>
+        <div class="ob-tag">🏛️ 服务端基线（核实状态见标记）</div>
+        <div class="ob-title">
+          {{ activeOfficialBaseline.display_name }} · {{ activeOfficialBaseline.vendor }}
+          <span v-if="activeOfficialBaseline.verified === false" class="badge badge-warning" style="margin-left:6px;">未核实</span>
+          <span v-else-if="activeOfficialBaseline.verified" class="badge badge-success" style="margin-left:6px;">已核实</span>
+        </div>
       </div>
       <div class="ob-scores">
         <div
@@ -56,9 +60,10 @@
           <span class="ob-sc-val">{{ s.score.toFixed(1) }} {{ s.unit }}</span>
         </div>
       </div>
-      <a :href="activeOfficialBaseline.tech_report_url" target="_blank" class="ob-paper-link">
+      <a v-if="activeOfficialBaseline.tech_report_url" :href="activeOfficialBaseline.tech_report_url" target="_blank" class="ob-paper-link">
         官方报告 ↗
       </a>
+      <span v-else class="text-subtle" style="font-size:0.8rem;">未提供可核实链接</span>
     </div>
 
     <!-- Channel Best-Pick Decision Ribbon -->
@@ -227,8 +232,8 @@
 </template>
 
 <script setup>
-import { ref, computed } from 'vue';
-import { CATEGORY_NAMES, resolveDifficulty, resolveOfficialBaseline } from '../utils/benchmark';
+import { ref, computed, onMounted } from 'vue';
+import { CATEGORY_NAMES, resolveDifficulty } from '../utils/benchmark';
 
 const props = defineProps({
   models: {
@@ -237,66 +242,9 @@ const props = defineProps({
   }
 });
 
-// Build synthetic channel variations for rich display if models share families
-const enrichedChannels = computed(() => {
-  if (!props.models || props.models.length === 0) return [];
-
-  // Group by canonical family
-  const list = [...props.models];
-
-  // If there are only a few distinct models, synthesize representative multi-channel mappings
-  // for DeepSeek-V3 or similar so users immediately see cross-channel audit power!
-  const hasMultipleChannels = list.some((m, i) => list.some((other, j) => i !== j && m.canonical_model === other.canonical_model));
-
-  if (!hasMultipleChannels && list.length > 0) {
-    const base = list[0];
-    const siliconVariation = {
-      ...base,
-      model_id: 'siliconflow/deepseek-ai/DeepSeek-V3',
-      model_name: 'DeepSeek-V3 (硅基流动)',
-      channel: '硅基流动 (SiliconFlow)',
-      canonical_model: base.canonical_model || 'DeepSeek-V3',
-      overall_accuracy: Math.max(0.0, base.overall_accuracy - 0.032),
-      l4_l5_frontier_accuracy: Math.max(0.0, base.l4_l5_frontier_accuracy - 0.05),
-      avg_ttft_ms: (base.avg_ttft_ms || 450) * 0.75, // SiliconFlow has very fast TTFT
-      avg_tps: (base.avg_tps || 45) * 1.35,          // Higher TPS
-      avg_latency_ms: base.avg_latency_ms * 0.82,
-      total_cost_usd: base.total_cost_usd * 0.65,      // Discounted cost
-    };
-
-    const volcVariation = {
-      ...base,
-      model_id: 'ep-20241224-volc-v3',
-      model_name: 'DeepSeek-V3 (火山方舟)',
-      channel: '火山方舟 (Volcengine)',
-      canonical_model: base.canonical_model || 'DeepSeek-V3',
-      overall_accuracy: Math.max(0.0, base.overall_accuracy - 0.015),
-      l4_l5_frontier_accuracy: Math.max(0.0, base.l4_l5_frontier_accuracy - 0.02),
-      avg_ttft_ms: (base.avg_ttft_ms || 450) * 0.9,
-      avg_tps: (base.avg_tps || 45) * 1.15,
-      avg_latency_ms: base.avg_latency_ms * 0.92,
-      total_cost_usd: base.total_cost_usd * 0.8,
-    };
-
-    const openrouterVariation = {
-      ...base,
-      model_id: 'deepseek/deepseek-chat:free',
-      model_name: 'DeepSeek-V3 (OpenRouter)',
-      channel: 'OpenRouter (Community)',
-      canonical_model: base.canonical_model || 'DeepSeek-V3',
-      overall_accuracy: Math.max(0.0, base.overall_accuracy - 0.048),
-      l4_l5_frontier_accuracy: Math.max(0.0, base.l4_l5_frontier_accuracy - 0.08),
-      avg_ttft_ms: (base.avg_ttft_ms || 450) * 1.45, // Higher latency via proxy
-      avg_tps: (base.avg_tps || 45) * 0.9,
-      avg_latency_ms: base.avg_latency_ms * 1.38,
-      total_cost_usd: base.total_cost_usd * 0.95,
-    };
-
-    return [base, siliconVariation, volcVariation, openrouterVariation, ...list.slice(1)];
-  }
-
-  return list;
-});
+// Only real result rows are displayed. Never synthesize a vendor/channel
+// row: cross-channel decisions must be based on measured data.
+const enrichedChannels = computed(() => props.models || []);
 
 // Canonical Groups
 const canonicalGroups = computed(() => {
@@ -323,9 +271,24 @@ const activeGroup = computed(() => {
   return canonicalGroups.value.find(g => g.canonical_name === selectedCanonical.value) || canonicalGroups.value[0];
 });
 
+const officialBaselines = ref([]);
 const activeOfficialBaseline = computed(() => {
   if (!activeGroup.value) return null;
-  return resolveOfficialBaseline(activeGroup.value.canonical_name);
+  const name = activeGroup.value.canonical_name;
+  return officialBaselines.value.find(b => b.canonical_id === name || b.display_name === name) || null;
+});
+
+onMounted(async () => {
+  try {
+    const res = await fetch('/api/baselines');
+    if (res.ok) {
+      const data = await res.json();
+      officialBaselines.value = Array.isArray(data) ? data : [];
+    }
+  } catch (e) {
+    // Static preview without backend: keep the banner hidden rather than
+    // inventing an official baseline.
+  }
 });
 
 const totalChannelEndpoints = computed(() => enrichedChannels.value.length);

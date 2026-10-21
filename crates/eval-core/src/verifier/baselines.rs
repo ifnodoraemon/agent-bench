@@ -19,6 +19,10 @@ pub struct OfficialModelBaseline {
     pub release_date: String,
     pub tech_report_title: String,
     pub tech_report_url: String,
+    /// Whether the URL and published scores were verified against a source
+    /// when this database entry was last reviewed. Unverified entries are
+    /// never used to issue a drift verdict.
+    pub verified: bool,
     pub scores: Vec<BenchmarkMetric>,
     pub primary_traits: Vec<String>,
 }
@@ -101,6 +105,7 @@ pub static OFFICIAL_BASELINES: LazyLock<Vec<OfficialModelBaseline>> = LazyLock::
             release_date: "2025-01".to_string(),
             tech_report_title: "DeepSeek-R1: Incentivizing Reasoning Capability in LLMs via RL".to_string(),
             tech_report_url: "https://arxiv.org/abs/2501.12948".to_string(),
+            verified: true,
             scores: vec![
                 bm("arena_elo", "LMSYS Chatbot Arena", "综合竞技场", 1364.0, "Elo", "LMSYS Chatbot Arena Leaderboard (2025-01)"),
                 bm("swe_bench_verified", "SWE-bench Verified", "工程 Agent 代码解决率", 49.2, "%", "DeepSeek-R1 Technical Report Table 2"),
@@ -126,6 +131,7 @@ pub static OFFICIAL_BASELINES: LazyLock<Vec<OfficialModelBaseline>> = LazyLock::
             release_date: "2024-12".to_string(),
             tech_report_title: "DeepSeek-V3 Technical Report".to_string(),
             tech_report_url: "https://arxiv.org/abs/2412.19437".to_string(),
+            verified: true,
             scores: vec![
                 bm("arena_elo", "LMSYS Chatbot Arena", "综合竞技场", 1317.0, "Elo", "LMSYS Chatbot Arena Leaderboard"),
                 bm("swe_bench_verified", "SWE-bench Verified", "工程 Agent 代码解决率", 42.0, "%", "DeepSeek-V3 Tech Report Table 4"),
@@ -149,6 +155,7 @@ pub static OFFICIAL_BASELINES: LazyLock<Vec<OfficialModelBaseline>> = LazyLock::
             release_date: "2025-02".to_string(),
             tech_report_title: "Claude 3.7 Sonnet and Claude Code Announcement".to_string(),
             tech_report_url: "https://www.anthropic.com/news/claude-3-7-sonnet".to_string(),
+            verified: true,
             scores: vec![
                 bm("arena_elo", "LMSYS Chatbot Arena", "综合竞技场", 1380.0, "Elo", "LMSYS Arena Feb 2025"),
                 bm("swe_bench_verified", "SWE-bench Verified", "工程 Agent 代码解决率", 70.3, "%", "Anthropic Claude 3.7 Technical Evaluation"),
@@ -171,7 +178,8 @@ pub static OFFICIAL_BASELINES: LazyLock<Vec<OfficialModelBaseline>> = LazyLock::
             vendor: "Anthropic".to_string(),
             release_date: "2024-10".to_string(),
             tech_report_title: "Claude 3.5 Model Card Addendum".to_string(),
-            tech_report_url: "https://www.anthropic.com/claude-3-5".to_string(),
+            tech_report_url: "".to_string(),
+            verified: false,
             scores: vec![
                 bm("arena_elo", "LMSYS Chatbot Arena", "综合竞技场", 1335.0, "Elo", "LMSYS Arena 2024"),
                 bm("swe_bench_verified", "SWE-bench Verified", "工程 Agent 代码解决率", 49.0, "%", "Anthropic Oct 2024 Report"),
@@ -195,6 +203,7 @@ pub static OFFICIAL_BASELINES: LazyLock<Vec<OfficialModelBaseline>> = LazyLock::
             release_date: "2024-12".to_string(),
             tech_report_title: "Learning to Reason with LLMs (OpenAI o1 System Card)".to_string(),
             tech_report_url: "https://openai.com/index/learning-to-reason-with-llms/".to_string(),
+            verified: true,
             scores: vec![
                 bm("arena_elo", "LMSYS Chatbot Arena", "综合竞技场", 1358.0, "Elo", "LMSYS Arena 2024"),
                 bm("swe_bench_verified", "SWE-bench Verified", "工程 Agent 代码解决率", 48.9, "%", "OpenAI o1 System Card Dec 2024"),
@@ -218,6 +227,7 @@ pub static OFFICIAL_BASELINES: LazyLock<Vec<OfficialModelBaseline>> = LazyLock::
             release_date: "2024-11".to_string(),
             tech_report_title: "Hello GPT-4o Technical Specification".to_string(),
             tech_report_url: "https://openai.com/index/hello-gpt-4o/".to_string(),
+            verified: true,
             scores: vec![
                 bm("arena_elo", "LMSYS Chatbot Arena", "综合竞技场", 1310.0, "Elo", "LMSYS Arena 2024"),
                 bm("swe_bench_verified", "SWE-bench Verified", "工程 Agent 代码解决率", 38.8, "%", "OpenAI System Card Update"),
@@ -241,6 +251,7 @@ pub static OFFICIAL_BASELINES: LazyLock<Vec<OfficialModelBaseline>> = LazyLock::
             release_date: "2024-09".to_string(),
             tech_report_title: "Qwen2.5: A Party of Foundation Models".to_string(),
             tech_report_url: "https://arxiv.org/abs/2412.15115".to_string(),
+            verified: true,
             scores: vec![
                 bm("arena_elo", "LMSYS Chatbot Arena", "综合竞技场", 1290.0, "Elo", "LMSYS Arena"),
                 bm("swe_bench_verified", "SWE-bench Verified", "工程 Agent 代码解决率", 31.2, "%", "Qwen2.5 Technical Report"),
@@ -263,7 +274,8 @@ pub static OFFICIAL_BASELINES: LazyLock<Vec<OfficialModelBaseline>> = LazyLock::
             vendor: "Meta".to_string(),
             release_date: "2024-12".to_string(),
             tech_report_title: "The Llama 3 Herd of Models & Llama 3.3 Announcement".to_string(),
-            tech_report_url: "https://ai.meta.com/blog/llama-3-3/".to_string(),
+            tech_report_url: "".to_string(),
+            verified: false,
             scores: vec![
                 bm("arena_elo", "LMSYS Chatbot Arena", "综合竞技场", 1275.0, "Elo", "LMSYS Arena Dec 2024"),
                 bm("swe_bench_verified", "SWE-bench Verified", "工程 Agent 代码解决率", 28.5, "%", "Meta AI Benchmark Card"),
@@ -287,6 +299,7 @@ pub static OFFICIAL_BASELINES: LazyLock<Vec<OfficialModelBaseline>> = LazyLock::
             release_date: "2024-12".to_string(),
             tech_report_title: "Gemini 2.0: Our New AI Model for the Agentic Era".to_string(),
             tech_report_url: "https://blog.google/technology/google-deepmind/google-gemini-ai-update-december-2024/".to_string(),
+            verified: true,
             scores: vec![
                 bm("arena_elo", "LMSYS Chatbot Arena", "综合竞技场", 1354.0, "Elo", "LMSYS Arena Jan 2025"),
                 bm("swe_bench_verified", "SWE-bench Verified", "工程 Agent 代码解决率", 35.6, "%", "Google DeepMind Gemini 2.0 Evaluation"),
@@ -310,6 +323,7 @@ pub static OFFICIAL_BASELINES: LazyLock<Vec<OfficialModelBaseline>> = LazyLock::
             release_date: "2025-01".to_string(),
             tech_report_title: "OpenAI o3-mini: Advancing Science, Math and Coding via Efficient Reasoning".to_string(),
             tech_report_url: "https://openai.com/index/openai-o3-mini/".to_string(),
+            verified: true,
             scores: vec![
                 bm("arena_elo", "LMSYS Chatbot Arena", "综合竞技场", 1370.0, "Elo", "LMSYS Arena Jan 2025"),
                 bm("swe_bench_verified", "SWE-bench Verified", "工程 Agent 代码解决率", 49.3, "%", "OpenAI o3-mini Evaluation"),
@@ -332,7 +346,8 @@ pub static OFFICIAL_BASELINES: LazyLock<Vec<OfficialModelBaseline>> = LazyLock::
             vendor: "Google DeepMind".to_string(),
             release_date: "2025-02".to_string(),
             tech_report_title: "Gemini 2.0 Pro: Frontier Reasoning and Multimodal Agent Architecture".to_string(),
-            tech_report_url: "https://blog.google/technology/google-deepmind/gemini-2-0-flash-thinking-pro/".to_string(),
+            tech_report_url: "".to_string(),
+            verified: false,
             scores: vec![
                 bm("arena_elo", "LMSYS Chatbot Arena", "综合竞技场", 1390.0, "Elo", "LMSYS Arena Feb 2025"),
                 bm("swe_bench_verified", "SWE-bench Verified", "工程 Agent 代码解决率", 58.4, "%", "Google DeepMind Gemini 2.0 Evaluation"),
@@ -356,6 +371,7 @@ pub static OFFICIAL_BASELINES: LazyLock<Vec<OfficialModelBaseline>> = LazyLock::
             release_date: "2025-04".to_string(),
             tech_report_title: "Grok 3: Colossus-Scale Reasoning and Frontier Intelligence".to_string(),
             tech_report_url: "https://x.ai/blog/grok-3".to_string(),
+            verified: true,
             scores: vec![
                 bm("arena_elo", "LMSYS Chatbot Arena", "综合竞技场", 1385.0, "Elo", "LMSYS Arena Apr 2025"),
                 bm("swe_bench_verified", "SWE-bench Verified", "工程 Agent 代码解决率", 55.8, "%", "xAI Grok 3 Benchmark Report"),
@@ -378,7 +394,8 @@ pub static OFFICIAL_BASELINES: LazyLock<Vec<OfficialModelBaseline>> = LazyLock::
             vendor: "DeepSeek".to_string(),
             release_date: "2025-08".to_string(),
             tech_report_title: "DeepSeek-V4: Next-Generation Sparse Architecture with Dynamic Thinking".to_string(),
-            tech_report_url: "https://arxiv.org/abs/deepseek-v4".to_string(),
+            tech_report_url: "".to_string(),
+            verified: false,
             scores: vec![
                 bm("arena_elo", "LMSYS Chatbot Arena", "综合竞技场", 1410.0, "Elo", "LMSYS Arena 2025"),
                 bm("swe_bench_verified", "SWE-bench Verified", "工程 Agent 代码解决率", 74.5, "%", "DeepSeek-V4 Evaluation"),
@@ -402,6 +419,7 @@ pub static OFFICIAL_BASELINES: LazyLock<Vec<OfficialModelBaseline>> = LazyLock::
             release_date: "2025-03".to_string(),
             tech_report_title: "QwQ-32B: Open-Weights Reasoning with Multi-Stage RL".to_string(),
             tech_report_url: "https://qwenlm.github.io/blog/qwq-32b/".to_string(),
+            verified: true,
             scores: vec![
                 bm("arena_elo", "LMSYS Chatbot Arena", "综合竞技场", 1360.0, "Elo", "LMSYS Arena Mar 2025"),
                 bm("swe_bench_verified", "SWE-bench Verified", "工程 Agent 代码解决率", 46.8, "%", "QwQ Technical Report"),
@@ -426,14 +444,15 @@ pub static OFFICIAL_BASELINES: LazyLock<Vec<OfficialModelBaseline>> = LazyLock::
             release_date: "2026-09".to_string(),
             tech_report_title: "Claude Opus 5.5: Frontier Agentic Coding and Intelligence".to_string(),
             tech_report_url: "https://www.anthropic.com/news/claude-opus-5-5".to_string(),
+            verified: false,
             scores: vec![
                 bm("arena_elo", "Code Arena WebDev", "综合竞技场与代码竞技", 1818.0, "Elo", "Code Arena Sep 2026"),
-                bm("swe_bench_verified", "SWE-bench Pro", "前沿工程代码修复率", 78.2, "%", "Anthropic Sep 2026 Evaluation"),
+                bm("swe_bench_pro", "SWE-bench Pro", "前沿工程代码修复率", 78.2, "%", "Anthropic Sep 2026 Evaluation"),
                 bm("math_500", "MATH-500", "高阶数学定理推理", 98.8, "%", "Anthropic Official Evaluation"),
                 bm("mmlu_pro", "MMLU-Pro", "高阶通识多学科综合", 92.4, "%", "Anthropic Official Evaluation"),
                 bm("gpqa_diamond", "GPQA Diamond", "博士级跨学科深层推理", 89.2, "%", "Anthropic Official Evaluation"),
                 bm("ifeval", "IFEval", "严格指令遵循精度", 94.5, "%", "Anthropic Official Evaluation"),
-                bm("livecodebench", "Terminal-Bench 4.0", "自主终端智能体任务解决率", 66.4, "%", "Terminal-Bench Sep 2026 Leaderboard"),
+                bm("terminal_bench", "Terminal-Bench 4.0", "自主终端智能体任务解决率", 66.4, "%", "Terminal-Bench Sep 2026 Leaderboard"),
             ],
             primary_traits: vec![
                 "Anthropic 2026年9月最新智能体旗舰".to_string(),
@@ -449,9 +468,10 @@ pub static OFFICIAL_BASELINES: LazyLock<Vec<OfficialModelBaseline>> = LazyLock::
             release_date: "2026-09".to_string(),
             tech_report_title: "GPT-6 Astra: Frontier Autonomous Agents and Multimodal Computer Use".to_string(),
             tech_report_url: "https://openai.com/index/gpt-6-astra/".to_string(),
+            verified: false,
             scores: vec![
                 bm("arena_elo", "LMSYS Chatbot Arena", "综合竞技场", 1520.0, "Elo", "LMSYS Arena Sep 2026"),
-                bm("swe_bench_verified", "SWE-bench Pro", "前沿工程代码修复率", 74.8, "%", "OpenAI System Card Sep 2026"),
+                bm("swe_bench_pro", "SWE-bench Pro", "前沿工程代码修复率", 74.8, "%", "OpenAI System Card Sep 2026"),
                 bm("math_500", "MATH-500", "高阶数学定理推理", 98.6, "%", "OpenAI Official Evaluation"),
                 bm("mmlu_pro", "MMLU-Pro", "高阶通识多学科综合", 91.8, "%", "OpenAI Official Evaluation"),
                 bm("gpqa_diamond", "GPQA Diamond", "博士级跨学科深层推理", 88.5, "%", "OpenAI Official Evaluation"),
@@ -472,11 +492,12 @@ pub static OFFICIAL_BASELINES: LazyLock<Vec<OfficialModelBaseline>> = LazyLock::
             release_date: "2026-07".to_string(),
             tech_report_title: "Kimi K3: 2.8-Trillion Parameter Open-Weights Reasoning and 1M Context".to_string(),
             tech_report_url: "https://moonshot.cn/research/kimi-k3".to_string(),
+            verified: false,
             scores: vec![
                 bm("arena_elo", "Code Arena WebDev", "Web 前端竞技场", 1682.0, "Elo", "Code Arena Jul 2026"),
                 bm("swe_bench_verified", "SWE-bench Verified", "工程 Agent 代码解决率", 59.4, "%", "Moonshot K3 Technical Report"),
                 bm("math_500", "MATH-500", "高阶数学定理推理", 97.8, "%", "Moonshot K3 Technical Report"),
-                bm("aime_2024", "AIME 2026", "数学竞赛 Pass@1", 82.5, "%", "Moonshot K3 Technical Report"),
+                bm("aime_2026", "AIME 2026", "数学竞赛 Pass@1", 82.5, "%", "Moonshot K3 Technical Report"),
                 bm("mmlu_pro", "MMLU-Pro", "高阶通识多学科综合", 88.5, "%", "Moonshot K3 Technical Report"),
                 bm("gpqa_diamond", "GPQA Diamond", "博士级跨学科深层推理", 81.2, "%", "Moonshot K3 Technical Report"),
                 bm("ifeval", "IFEval", "严格指令遵循精度", 91.2, "%", "Moonshot K3 Technical Report"),
@@ -495,12 +516,13 @@ pub static OFFICIAL_BASELINES: LazyLock<Vec<OfficialModelBaseline>> = LazyLock::
             vendor: "Alibaba Cloud".to_string(),
             release_date: "2026-08".to_string(),
             tech_report_title: "Qwen 3.8-Max: Frontier Multimodal Agent and Autonomous Coding".to_string(),
-            tech_report_url: "https://qwenlm.github.io/blog/qwen-3.8/".to_string(),
+            tech_report_url: "".to_string(),
+            verified: false,
             scores: vec![
                 bm("arena_elo", "LMSYS Chatbot Arena", "综合竞技场", 1480.0, "Elo", "LMSYS Arena Aug 2026"),
                 bm("swe_bench_verified", "SWE-bench Verified", "工程 Agent 代码解决率", 62.0, "%", "Alibaba Qwen 3.8 Report"),
                 bm("math_500", "MATH-500", "高阶数学定理推理", 98.1, "%", "Alibaba Qwen 3.8 Report"),
-                bm("mmlu_pro", "PaperBench", "高阶科研论文研判准确率", 93.0, "%", "PaperBench Aug 2026"),
+                bm("paperbench", "PaperBench", "高阶科研论文研判准确率", 93.0, "%", "PaperBench Aug 2026"),
                 bm("gpqa_diamond", "GPQA Diamond", "博士级跨学科深层推理", 85.0, "%", "Alibaba Qwen 3.8 Report"),
                 bm("ifeval", "IFEval", "严格指令遵循精度", 92.5, "%", "Alibaba Qwen 3.8 Report"),
                 bm("livecodebench", "Terminal-Bench 2.1", "终端智能体任务解决率", 86.6, "%", "Terminal-Bench Aug 2026"),
@@ -518,7 +540,8 @@ pub static OFFICIAL_BASELINES: LazyLock<Vec<OfficialModelBaseline>> = LazyLock::
             vendor: "Google DeepMind".to_string(),
             release_date: "2026-09".to_string(),
             tech_report_title: "Gemini 3: Frontier Agent Architecture and Audio-Visual Reasoning".to_string(),
-            tech_report_url: "https://blog.google/technology/google-deepmind/gemini-3-update/".to_string(),
+            tech_report_url: "".to_string(),
+            verified: false,
             scores: vec![
                 bm("arena_elo", "LMSYS Chatbot Arena", "综合竞技场", 1505.0, "Elo", "LMSYS Arena 2026"),
                 bm("swe_bench_verified", "SWE-bench Verified", "工程 Agent 代码解决率", 72.0, "%", "Google DeepMind Gemini 3 Report"),
@@ -541,10 +564,11 @@ pub static OFFICIAL_BASELINES: LazyLock<Vec<OfficialModelBaseline>> = LazyLock::
             vendor: "Meta".to_string(),
             release_date: "2026-04".to_string(),
             tech_report_title: "The Llama 4 Herd: Native Multimodal MoE at 400B Scale".to_string(),
-            tech_report_url: "https://ai.meta.com/blog/llama-4/".to_string(),
+            tech_report_url: "".to_string(),
+            verified: false,
             scores: vec![
                 bm("arena_elo", "LMSYS Chatbot Arena", "综合竞技场", 1440.0, "Elo", "LMSYS Arena Apr 2026"),
-                bm("swe_bench_verified", "SWE-bench Pro", "工程代码解决率", 61.5, "%", "Meta AI Llama 4 Report"),
+                bm("swe_bench_pro", "SWE-bench Pro", "工程代码解决率", 61.5, "%", "Meta AI Llama 4 Report"),
                 bm("math_500", "MATH-500", "高阶数学定理推理", 97.2, "%", "Meta AI Llama 4 Report"),
                 bm("mmlu_pro", "MMLU-Pro", "高阶通识多学科综合", 91.0, "%", "Meta AI Llama 4 Report"),
                 bm("gpqa_diamond", "GPQA Diamond", "博士级跨学科深层推理", 84.0, "%", "Meta AI Llama 4 Report"),
@@ -571,7 +595,14 @@ pub static CANONICAL_RULES: &[CanonicalResolutionRule] = &[
     // 2026 New Flagship Models First
     CanonicalResolutionRule {
         canonical_id: "claude-opus-5-5",
-        match_keywords: &["claude-opus-5.5", "claude-opus-5-5", "claude-5.5", "claude-5", "opus-5.5", "opus-5"],
+        match_keywords: &[
+            "claude-opus-5.5",
+            "claude-opus-5-5",
+            "claude-5.5",
+            "claude-5",
+            "opus-5.5",
+            "opus-5",
+        ],
         negative_keywords: &[],
     },
     CanonicalResolutionRule {
@@ -607,7 +638,12 @@ pub static CANONICAL_RULES: &[CanonicalResolutionRule] = &[
     },
     CanonicalResolutionRule {
         canonical_id: "deepseek-r1",
-        match_keywords: &["deepseek-r1", "deepseek_r1", "deepseek-reasoner", "r1-distill"],
+        match_keywords: &[
+            "deepseek-r1",
+            "deepseek_r1",
+            "deepseek-reasoner",
+            "r1-distill",
+        ],
         negative_keywords: &[],
     },
     CanonicalResolutionRule {
@@ -656,7 +692,13 @@ pub static CANONICAL_RULES: &[CanonicalResolutionRule] = &[
     },
     CanonicalResolutionRule {
         canonical_id: "gemini-2-0-flash",
-        match_keywords: &["gemini-2.0-flash", "gemini-2-flash", "gemini-2.0", "gemini-2", "gemini"],
+        match_keywords: &[
+            "gemini-2.0-flash",
+            "gemini-2-flash",
+            "gemini-2.0",
+            "gemini-2",
+            "gemini",
+        ],
         negative_keywords: &["pro"],
     },
     // Alibaba Qwen Family
@@ -731,6 +773,24 @@ pub fn evaluate_baseline_drift(
 
     let baseline = baseline_opt.unwrap();
     let canonical = canonical_opt.unwrap();
+    if !baseline.verified {
+        return BaselineDriftReport {
+            target_model: target_model.to_string(),
+            canonical_id: canonical.to_string(),
+            baseline_found: false,
+            display_name: baseline.display_name.to_string(),
+            vendor: baseline.vendor.to_string(),
+            tech_report_url: baseline.tech_report_url.to_string(),
+            comparisons: Vec::new(),
+            mean_drift_pct: 0.0,
+            drift_severity: DriftStatus::Matching,
+            verdict: format!(
+                "【{}】的官方基线尚未核实（无可用来源/未复核分数），不做漂移判定",
+                baseline.display_name
+            ),
+            confidence: 0.0,
+        };
+    }
     let mut comparisons = Vec::new();
     let mut drift_sum = 0.0;
     let mut drift_count = 0usize;
@@ -748,12 +808,18 @@ pub fn evaluate_baseline_drift(
             let (status, diagnosis) = if (-5.0..=5.0).contains(&delta_pct) {
                 (
                     DriftStatus::Matching,
-                    format!("实测分与官方公布分高度吻合（Δ = {:+.1}%），表现真实稳定", delta_pct),
+                    format!(
+                        "实测分与官方公布分高度吻合（Δ = {:+.1}%），表现真实稳定",
+                        delta_pct
+                    ),
                 )
             } else if (-15.0..-5.0).contains(&delta_pct) {
                 (
                     DriftStatus::MinorDeficit,
-                    format!("实测分较官方微降 {:+.1}%，推测为节点量化（如 INT8/FP8）或不同并发温度所致", delta_pct),
+                    format!(
+                        "实测分较官方微降 {:+.1}%，推测为节点量化（如 INT8/FP8）或不同并发温度所致",
+                        delta_pct
+                    ),
                 )
             } else if delta_pct < -15.0 {
                 (
@@ -763,7 +829,10 @@ pub fn evaluate_baseline_drift(
             } else {
                 (
                     DriftStatus::SuspiciousOverfit,
-                    format!("异常高分：实测分高出官方 {:+.1}%，需排查题目是否泄露过拟合或存在作弊", delta_pct),
+                    format!(
+                        "异常高分：实测分高出官方 {:+.1}%，需排查题目是否泄露过拟合或存在作弊",
+                        delta_pct
+                    ),
                 )
             };
 
@@ -794,7 +863,10 @@ pub fn evaluate_baseline_drift(
     let (severity, verdict) = if comparisons.is_empty() {
         (
             DriftStatus::Matching,
-            format!("已收录【{}】官方基线，但当前测试暂无对应权威指标比对", baseline.display_name),
+            format!(
+                "已收录【{}】官方基线，但当前测试暂无对应权威指标比对",
+                baseline.display_name
+            ),
         )
     } else if mean_drift < -15.0 {
         (
@@ -859,24 +931,57 @@ mod tests {
 
     #[test]
     fn test_resolve_canonical_id() {
-        assert_eq!(resolve_canonical_id("claude-opus-5.5-20260922"), Some("claude-opus-5-5"));
-        assert_eq!(resolve_canonical_id("gpt-6-astra-preview"), Some("gpt-6-astra"));
+        assert_eq!(
+            resolve_canonical_id("claude-opus-5.5-20260922"),
+            Some("claude-opus-5-5")
+        );
+        assert_eq!(
+            resolve_canonical_id("gpt-6-astra-preview"),
+            Some("gpt-6-astra")
+        );
         assert_eq!(resolve_canonical_id("kimi-k3-2.8t"), Some("kimi-k3"));
-        assert_eq!(resolve_canonical_id("qwen-3.8-max-20260902"), Some("qwen-3-8-max"));
-        assert_eq!(resolve_canonical_id("gemini-3.8-flash-exp"), Some("gemini-3-8-flash"));
-        assert_eq!(resolve_canonical_id("llama-4-maverick-400b"), Some("llama-4-maverick"));
-        assert_eq!(resolve_canonical_id("deepseek-ai/DeepSeek-R1"), Some("deepseek-r1"));
-        assert_eq!(resolve_canonical_id("claude-3-7-sonnet-20250219"), Some("claude-3-7-sonnet"));
-        assert_eq!(resolve_canonical_id("claude-3-5-sonnet-20241022"), Some("claude-3-5-sonnet"));
+        assert_eq!(
+            resolve_canonical_id("qwen-3.8-max-20260902"),
+            Some("qwen-3-8-max")
+        );
+        assert_eq!(
+            resolve_canonical_id("gemini-3.8-flash-exp"),
+            Some("gemini-3-8-flash")
+        );
+        assert_eq!(
+            resolve_canonical_id("llama-4-maverick-400b"),
+            Some("llama-4-maverick")
+        );
+        assert_eq!(
+            resolve_canonical_id("deepseek-ai/DeepSeek-R1"),
+            Some("deepseek-r1")
+        );
+        assert_eq!(
+            resolve_canonical_id("claude-3-7-sonnet-20250219"),
+            Some("claude-3-7-sonnet")
+        );
+        assert_eq!(
+            resolve_canonical_id("claude-3-5-sonnet-20241022"),
+            Some("claude-3-5-sonnet")
+        );
         assert_eq!(resolve_canonical_id("o1-preview"), Some("openai-o1"));
         assert_eq!(resolve_canonical_id("o3-mini"), Some("openai-o3-mini"));
-        assert_eq!(resolve_canonical_id("gemini-2.0-pro-exp"), Some("gemini-2-0-pro"));
-        assert_eq!(resolve_canonical_id("gemini-2.0-flash"), Some("gemini-2-0-flash"));
+        assert_eq!(
+            resolve_canonical_id("gemini-2.0-pro-exp"),
+            Some("gemini-2-0-pro")
+        );
+        assert_eq!(
+            resolve_canonical_id("gemini-2.0-flash"),
+            Some("gemini-2-0-flash")
+        );
         assert_eq!(resolve_canonical_id("gpt-4o-mini"), Some("gpt-4o"));
         assert_eq!(resolve_canonical_id("grok-3-beta"), Some("grok-3"));
         assert_eq!(resolve_canonical_id("deepseek-v4-moe"), Some("deepseek-v4"));
         assert_eq!(resolve_canonical_id("qwq-32b-preview"), Some("qwq-32b"));
-        assert_eq!(resolve_canonical_id("qwen-2.5-72b-instruct"), Some("qwen-2-5-72b"));
+        assert_eq!(
+            resolve_canonical_id("qwen-2.5-72b-instruct"),
+            Some("qwen-2-5-72b")
+        );
     }
 
     #[test]
@@ -896,10 +1001,7 @@ mod tests {
 
     #[test]
     fn test_severe_drift_detection() {
-        let tested = vec![
-            ("swe_bench_verified", 20.0),
-            ("math_500", 50.0),
-        ];
+        let tested = vec![("swe_bench_verified", 20.0), ("math_500", 50.0)];
 
         let report = evaluate_baseline_drift("DeepSeek-R1", &tested);
         assert_eq!(report.drift_severity, DriftStatus::SevereDeficit);

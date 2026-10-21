@@ -91,7 +91,7 @@
       <!-- Custom Endpoint Options (when formModel === 'custom') -->
       <div v-if="formModel === 'custom'" class="custom-endpoint-box">
         <div class="custom-box-title">
-          <span>⚙️ 自定义端点与凭证直连参数 (严禁隐式兜底，非法端点将直接阻断并报错)</span>
+          <span>⚙️ 自定义端点参数（需服务端启动时加 --allow-custom-endpoints；Web 请求不支持 env: 密钥）</span>
         </div>
         <div class="custom-grid">
           <div class="config-item">
@@ -117,22 +117,22 @@
           </div>
 
           <div class="config-item">
-            <label>Base URL (可选, 支持 env:VAR):</label>
+            <label>Base URL (可选；仅 --allow-custom-endpoints 时可用):</label>
             <input
               v-model="formBaseUrl"
               type="text"
-              placeholder="例如: https://api.openai.com/v1 或 env:OPENAI_BASE_URL"
+              placeholder="例如: https://api.openai.com/v1（服务端需开启自定义端点）"
               :disabled="isRunning"
               class="cfg-input font-mono"
             />
           </div>
 
           <div class="config-item">
-            <label>API Key (可选, 支持 env:VAR):</label>
+            <label>API Key (可选；不支持 env:，且需服务端显式开启):</label>
             <input
               v-model="formApiKey"
               type="password"
-              placeholder="例如: sk-... 或 env:OPENAI_API_KEY"
+              placeholder="例如: sk-...（不要把服务端 env: 名称发给 Web API）"
               :disabled="isRunning"
               class="cfg-input font-mono"
             />

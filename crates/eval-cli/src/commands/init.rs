@@ -13,7 +13,9 @@ pub fn execute_init(output_path: Option<String>) -> Result<()> {
     println!("  [1] OpenAI Chat Completions (/v1/chat/completions)");
     println!("      适用: 通用标准格式 (GPT-6 Astra, Kimi K3, Qwen 3.8-Max, DeepSeek-V4, 本地 Ollama/vLLM/GPUStack 等)");
     println!("  [2] OpenAI Responses API (/v1/responses)");
-    println!("      适用: OpenAI Responses 格式 (支持 GPT-6 / o3 / input / instructions / 内置搜索)");
+    println!(
+        "      适用: OpenAI Responses 格式 (支持 GPT-6 / o3 / input / instructions / 内置搜索)"
+    );
     println!("  [3] Anthropic Claude (/v1/messages)");
     println!("      适用: Claude Opus 5.5 (2026最新旗舰) / Claude 3.7 及 Claude 代理网关");
     println!("  [4] Google Gemini (generateContent)");
@@ -22,20 +24,46 @@ pub fn execute_init(output_path: Option<String>) -> Result<()> {
 
     let protocol_choice = prompt_input("请输入选项序号 [1-5] (默认 1): ", "1");
     let (protocol, default_url, default_model, default_key) = match protocol_choice.trim() {
-        "2" => ("openai_response", "https://api.openai.com/v1", "gpt-6-astra", "env:OPENAI_API_KEY"),
-        "3" => ("anthropic", "https://api.anthropic.com/v1", "claude-opus-5.5", "env:ANTHROPIC_API_KEY"),
-        "4" => ("gemini", "https://generativelanguage.googleapis.com/v1beta", "gemini-3.8-flash", "env:GEMINI_API_KEY"),
+        "2" => (
+            "openai_response",
+            "https://api.openai.com/v1",
+            "gpt-6-astra",
+            "env:OPENAI_API_KEY",
+        ),
+        "3" => (
+            "anthropic",
+            "https://api.anthropic.com/v1",
+            "claude-opus-5.5",
+            "env:ANTHROPIC_API_KEY",
+        ),
+        "4" => (
+            "gemini",
+            "https://generativelanguage.googleapis.com/v1beta",
+            "gemini-3.8-flash",
+            "env:GEMINI_API_KEY",
+        ),
         "5" => ("mock", "", "mock-pro", "none"),
-        _ => ("openai_chat", "https://api.openai.com/v1", "gpt-6-astra", "env:OPENAI_API_KEY"),
+        _ => (
+            "openai_chat",
+            "https://api.openai.com/v1",
+            "gpt-6-astra",
+            "env:OPENAI_API_KEY",
+        ),
     };
 
     // 2. Model Identifier
     println!("\n📌 [步骤 2/5] 请输入模型的唯一标识 ID (用于生成报表与雷达图展示):");
-    let model_id = prompt_input(&format!("模型 ID (默认: {}): ", default_model), default_model);
+    let model_id = prompt_input(
+        &format!("模型 ID (默认: {}): ", default_model),
+        default_model,
+    );
 
     // 3. Model Name
     println!("\n📌 [步骤 3/5] 请输入实际请求的 API 模型名称 (Model Name):");
-    let model_name = prompt_input(&format!("Model Name (默认: {}): ", default_model), default_model);
+    let model_name = prompt_input(
+        &format!("Model Name (默认: {}): ", default_model),
+        default_model,
+    );
 
     // 4. Base URL
     println!("\n📌 [步骤 4/5] 请输入接口 Base URL (支持自定义反代或本地服务):");
@@ -49,7 +77,7 @@ pub fn execute_init(output_path: Option<String>) -> Result<()> {
     let concurrency = prompt_input("评测并发任务数 Concurrency (默认: 5): ", "5");
 
     let config_content = format!(
-r#"# agent-bench 评测配置文件 (由 agent-bench init 自动生成)
+        r#"# agent-bench 评测配置文件 (由 agent-bench init 自动生成)
 
 [benchmark]
 concurrency = {concurrency}
@@ -65,7 +93,8 @@ model_name = "{model_name}"
 base_url = "{base_url}"
 api_key = "{api_key}"
 temperature = 0.0
-"#);
+"#
+    );
 
     if Path::new(&target_file).exists() {
         println!("\n⚠️ 文件 '{target_file}' 已存在，是否覆盖？[y/N]");

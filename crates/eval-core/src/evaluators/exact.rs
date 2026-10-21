@@ -18,11 +18,10 @@ impl ExactMatchEvaluator {
         }
     }
 
-    /// Extract clean answer from potential Markdown/LaTeX wrappers like \boxed{...} or \frac{a}{b}
+    /// Extract clean answer from potential Markdown/LaTeX wrappers like \boxed{...} or \frac{a}{b}.
     pub fn normalize_answer(text: &str) -> String {
         let mut s = text.trim().to_string();
 
-        // 1. Extract content inside \boxed{...} if present
         if let Some(boxed_idx) = s.rfind(r"\boxed{") {
             let inner = &s[boxed_idx + 7..];
             let mut depth = 1;
@@ -43,7 +42,6 @@ impl ExactMatchEvaluator {
             }
         }
 
-        // 2. Normalize \frac{a}{b} -> a/b
         while let Some(frac_idx) = s.find(r"\frac{") {
             let after_frac = &s[frac_idx + 6..];
             if let Some(close_num) = after_frac.find('}') {
@@ -62,54 +60,178 @@ impl ExactMatchEvaluator {
             break;
         }
 
-        // 3. Remove LaTeX wrappers like \[, \], \(, \), $$, $
-        s = s.replace(r"\[", "")
+        s = s
+            .replace(r"\[", "")
             .replace(r"\]", "")
             .replace(r"\(", "")
             .replace(r"\)", "")
             .replace("$$", "")
             .replace('$', "");
-
-        // 4. Strip trailing punctuation
-        s = s.trim_end_matches(['.', ',', '!', '?', ';', ':', ' ']).trim().to_string();
+        s = s
+            .trim_end_matches(['.', ',', '!', '?', ';', ':', ' '])
+            .trim()
+            .to_string();
         s
+    }
+
+    fn parse_number(s: &str) -> Option<f64> {
+        let cleaned = s.trim().replace(',', "");
+        cleaned.parse::<f64>().ok().filter(|v| v.is_finite())
     }
 }
 
 #[async_trait]
 impl Evaluator for ExactMatchEvaluator {
-    async fn evaluate(&self, test_case: &TestCase, response: &ModelResponse) -> Result<EvaluationResult> {
+    async fn evaluate(
+        &self,
+        test_case: &TestCase,
+        response: &ModelResponse,
+    ) -> Result<EvaluationResult> {
         let reference = match &test_case.reference_answer {
-            Some(ref_ans) => ref_ans.as_str(),
+            Some(reference) => reference,
             None => {
-                return Ok(EvaluationResult::fail("Missing reference_answer in test case"));
+                return Ok(EvaluationResult::fail(
+                    "Missing reference_answer in test case",
+                ))
             }
         };
 
         let raw_output = response.text.trim();
         let target = reference.trim();
+        if target.is_empty() {
+            return Ok(EvaluationResult::fail(
+                "Empty reference_answer in test case",
+            ));
+        }
 
         let norm_output = Self::normalize_answer(raw_output);
         let norm_target = Self::normalize_answer(target);
 
-        let (final_output, final_target) = if !self.case_sensitive {
-            (norm_output.to_lowercase(), norm_target.to_lowercase())
-        } else {
+        let (final_output, final_target) = if self.case_sensitive {
             (norm_output, norm_target)
+        } else {
+            (norm_output.to_lowercase(), norm_target.to_lowercase())
         };
 
         if final_output == final_target {
-            Ok(EvaluationResult::pass("Exact match succeeded"))
-        } else if final_output.contains(&final_target) || raw_output.to_lowercase().contains(&final_target.to_lowercase()) {
-            Ok(EvaluationResult::partial(
-                0.8,
-                format!("Output contains target reference answer (Matched: '{target}')"),
-            ))
-        } else {
-            Ok(EvaluationResult::fail(format!(
-                "Mismatch. Expected: '{target}', got: '{raw_output}'"
-            )))
+            return Ok(EvaluationResult::pass("Exact match succeeded"));
         }
+
+        // Numeric equivalence is allowed only when both sides are a single
+        // number: 4 == 4.0. Substring matching is deliberately not allowed,
+        // because "12" must not match "2012" and "5" must not match "5.5".
+        if let (Some(a), Some(b)) = (
+            Self::parse_number(&final_output),
+            Self::parse_number(&final_target),
+        ) {
+            let tolerance = 1e-9 * a.abs().max(b.abs()).max(1.0);
+            if (a - b).abs() <= tolerance {
+                return Ok(EvaluationResult::pass(
+                    "Numerically equivalent to reference answer",
+                ));
+            }
+        }
+
+        Ok(EvaluationResult::fail(format!(
+            "Mismatch. Expected: '{target}', got: '{raw_output}'"
+        )))
     }
 }
 
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::dataset::{Category, EvaluationType};
+    use crate::model::TokenUsage;
+    use std::collections::HashMap;
+    use std::time::Duration;
+
+    fn case(reference: &str) -> TestCase {
+        TestCase {
+            id: "t".to_string(),
+            name: None,
+            category: Category::Foundation,
+            difficulty: None,
+            tags: vec![],
+            prompt: "p".to_string(),
+            system_prompt: None,
+            reference_answer: Some(reference.to_string()),
+            eval_type: EvaluationType::ExactMatch,
+            criteria: None,
+            schema: None,
+            test_code: None,
+            tools: None,
+            max_turns: None,
+            metadata: HashMap::new(),
+        }
+    }
+
+    fn response(text: &str) -> ModelResponse {
+        ModelResponse {
+            text: text.to_string(),
+            reasoning_content: None,
+            tool_calls: None,
+            usage: TokenUsage::default(),
+            ttft: None,
+            total_duration: Duration::from_millis(1),
+            tokens_per_second: 1.0,
+            estimated_cost_usd: 0.0,
+            finish_reason: None,
+            raw_response: None,
+        }
+    }
+
+    #[tokio::test]
+    async fn exact_and_numeric() {
+        let evaluator = ExactMatchEvaluator::default();
+        assert!(
+            evaluator
+                .evaluate(&case("Paris"), &response("paris"))
+                .await
+                .unwrap()
+                .passed
+        );
+        assert!(
+            evaluator
+                .evaluate(&case("4"), &response("4.0"))
+                .await
+                .unwrap()
+                .passed
+        );
+    }
+
+    #[tokio::test]
+    async fn rejects_substring_false_positives() {
+        let evaluator = ExactMatchEvaluator::default();
+        assert!(
+            !evaluator
+                .evaluate(&case("12"), &response("2012"))
+                .await
+                .unwrap()
+                .passed
+        );
+        assert!(
+            !evaluator
+                .evaluate(&case("5"), &response("5.5"))
+                .await
+                .unwrap()
+                .passed
+        );
+        assert!(
+            !evaluator
+                .evaluate(&case("Paris"), &response("The capital is Paris."))
+                .await
+                .unwrap()
+                .passed
+        );
+    }
+
+    #[tokio::test]
+    async fn latex_box_is_supported() {
+        let evaluator = ExactMatchEvaluator::default();
+        let resp =
+            response(r"probability = \(\frac{6}{36} = \frac{1}{6}\). \[ \boxed{\frac{1}{6}} \]");
+        let res = evaluator.evaluate(&case("1/6"), &resp).await.unwrap();
+        assert!(res.passed, "{}", res.reason);
+    }
+}

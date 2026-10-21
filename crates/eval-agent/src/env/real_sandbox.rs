@@ -1,13 +1,16 @@
 use super::SimulatedEnvironment;
+use crate::{calc, path, pi_tools};
 use anyhow::{anyhow, Result};
+use eval_core::sandbox::Sandbox;
 use serde_json::Value;
 use std::path::{Path, PathBuf};
-use std::process::Command;
 use std::sync::{Arc, Mutex};
+use std::time::Duration;
 use tempfile::TempDir;
 
 pub struct RealSubprocessBashEnv {
     temp_dir: Arc<Mutex<TempDir>>,
+    sandbox: Sandbox,
 }
 
 impl Default for RealSubprocessBashEnv {
@@ -19,23 +22,28 @@ impl Default for RealSubprocessBashEnv {
 impl RealSubprocessBashEnv {
     pub fn new() -> Result<Self> {
         let temp_dir = tempfile::tempdir()?;
-        let app_dir = temp_dir.path().join("app");
+        let env = Self {
+            temp_dir: Arc::new(Mutex::new(temp_dir)),
+            sandbox: Sandbox::from_env(),
+        };
+        let app_dir = env.sandbox_path().join("app");
         let logs_dir = app_dir.join("logs");
         std::fs::create_dir_all(&logs_dir)?;
 
-        std::fs::write(
-            app_dir.join("config.yaml"),
-            "server:\n  port: 8080\n  host: 0.0.0.0\ndatabase:\n  url: postgres://admin:secret@localhost:5432/app_db\n",
+        path::write_no_follow(
+            &env.sandbox_path(),
+            "app/config.yaml",
+            b"server:\n  port: 8080\n  host: 0.0.0.0\ndatabase:\n  url: postgres://admin:secret@localhost:5432/app_db\n",
         )?;
 
-        std::fs::write(
-            logs_dir.join("error.log"),
-            "[2026-08-20 04:12:01] ERROR ConnectionRefused: database host localhost:5432 unreachable\n[2026-08-20 04:12:05] FATAL Server shutdown abnormally\n",
+        path::write_no_follow(
+            &env.sandbox_path(),
+            "app/logs/error.log",
+            b"[2026-08-20 04:12:01] ERROR ConnectionRefused: database host localhost:5432 unreachable\n[2026-08-20 04:12:05] FATAL Server shutdown abnormally\n",
         )?;
 
-        Ok(Self {
-            temp_dir: Arc::new(Mutex::new(temp_dir)),
-        })
+        crate::workspace::seed_benchmark_db(&env.sandbox_path())?;
+        Ok(env)
     }
 
     pub fn sandbox_path(&self) -> PathBuf {
@@ -43,18 +51,20 @@ impl RealSubprocessBashEnv {
     }
 
     pub fn write_file<P: AsRef<Path>>(&self, relative_path: P, content: &str) -> Result<()> {
-        let full_path = self.sandbox_path().join(relative_path);
-        if let Some(parent) = full_path.parent() {
-            std::fs::create_dir_all(parent)?;
-        }
-        std::fs::write(full_path, content)?;
+        let rel = relative_path
+            .as_ref()
+            .to_str()
+            .ok_or_else(|| anyhow!("Path is not valid UTF-8"))?;
+        path::write_no_follow(&self.sandbox_path(), rel, content.as_bytes())?;
         Ok(())
     }
 
     pub fn read_file<P: AsRef<Path>>(&self, relative_path: P) -> Result<String> {
-        let full_path = self.sandbox_path().join(relative_path);
-        let content = std::fs::read_to_string(full_path)?;
-        Ok(content)
+        let rel = relative_path
+            .as_ref()
+            .to_str()
+            .ok_or_else(|| anyhow!("Path is not valid UTF-8"))?;
+        path::read_string_no_follow(&self.sandbox_path(), rel)
     }
 }
 
@@ -76,39 +86,27 @@ impl SimulatedEnvironment for RealSubprocessBashEnv {
                     return Ok("Error: Empty bash command provided.".to_string());
                 }
 
-                let output = Command::new("timeout")
-                    .arg("15s")
-                    .arg("bash")
-                    .arg("-c")
-                    .arg(cmd)
-                    .current_dir(&cwd)
-                    .output()?;
-
-                let stdout = String::from_utf8_lossy(&output.stdout);
-                let stderr = String::from_utf8_lossy(&output.stderr);
-                let exit_code = output.status.code().unwrap_or(-1);
-
-                if exit_code == 124 {
-                    return Ok("Error: Command execution timed out (exceeded 15s limit).".to_string());
+                let effective_cmd = path::rewrite_app_alias(cmd, &cwd);
+                let out = self
+                    .sandbox
+                    .run_bash(&effective_cmd, &cwd, Duration::from_secs(15))?;
+                if out.timed_out {
+                    return Ok(
+                        "Error: Command execution timed out (exceeded 15s limit).".to_string()
+                    );
                 }
-
-                let mut res = String::new();
-                if !stdout.is_empty() {
-                    res.push_str(stdout.trim_end());
-                }
-                if !stderr.is_empty() {
-                    if !res.is_empty() {
-                        res.push('\n');
-                    }
-                    res.push_str(&format!("[stderr]: {}", stderr.trim_end()));
-                }
-                if exit_code != 0 && res.is_empty() {
-                    res.push_str(&format!("[Exit code: {exit_code}]"));
+                let mut res = out.combined();
+                if !out.success {
+                    res.push_str(&format!(
+                        "\n[exit code: {}]",
+                        out.status_code
+                            .map(|c| c.to_string())
+                            .unwrap_or_else(|| "signal".to_string())
+                    ));
                 }
                 if res.is_empty() {
                     res.push_str("(Command executed with no output, exit code 0)");
                 }
-
                 Ok(res)
             }
             "search_web" => {
@@ -116,23 +114,17 @@ impl SimulatedEnvironment for RealSubprocessBashEnv {
                     .get("query")
                     .and_then(|q| q.as_str())
                     .unwrap_or("");
-                Ok(format!("[Web Search for '{query}']: Official docs and facts returned."))
+                pi_tools::search_web_tool(query)
             }
-            "calculator" => {
+            "database_query" | "query_database" => {
+                pi_tools::database_query_tool(&self.sandbox_path(), &parsed_args)
+            }
+            "calculator" | "calculate" | "calc" => {
                 let expr = parsed_args
                     .get("expression")
                     .and_then(|e| e.as_str())
                     .unwrap_or("");
-                let py_cmd = format!("print({expr})");
-                let output = Command::new("python3")
-                    .arg("-c")
-                    .arg(&py_cmd)
-                    .output();
-                if let Ok(out) = output {
-                    Ok(String::from_utf8_lossy(&out.stdout).trim().to_string())
-                } else {
-                    Ok(format!("Calculated: {expr}"))
-                }
+                Ok(calc::evaluate_to_string(expr)?)
             }
             other => Err(anyhow!("Unknown tool in RealSubprocessBashEnv: {other}")),
         }

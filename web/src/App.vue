@@ -53,7 +53,7 @@
             📂 上传报告
           </button>
 
-          <button class="btn btn-header btn-ghost" @click="loadDefaultDataset" title="重新载入默认 1009 题样例">
+          <button class="btn btn-header btn-ghost" @click="loadDefaultDataset" title="重新载入默认公开数据样例">
             🔄 重置样例
           </button>
 
@@ -222,7 +222,7 @@
             @click="currentTab = 'verification'"
           >
             <span class="tab-icon">🛡️</span>
-            <span class="tab-title">一键模型验真</span>
+            <span class="tab-title">多信号核验</span>
           </button>
 
           <button

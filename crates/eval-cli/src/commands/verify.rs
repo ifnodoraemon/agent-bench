@@ -4,6 +4,7 @@ use comfy_table::modifiers::UTF8_ROUND_CORNERS;
 use comfy_table::presets::UTF8_FULL;
 use comfy_table::{Cell, Color, Row, Table};
 use eval_agent::{AgentAuditReport, VerificationAgent};
+use eval_core::dataset::{DatasetLoader, TestCase};
 use eval_core::model::{create_client, ApiProtocol, ModelConfig};
 use eval_core::verifier::{BaselineDriftReport, DriftStatus, ModelVerifier, VerificationReport};
 use std::path::Path;
@@ -25,10 +26,19 @@ pub async fn execute_verify(
     let mut resolved_config = None;
 
     // Check config file first
-    let cfg_to_try = config_path.as_deref().unwrap_or("agent_bench.toml");
+    let cfg_to_try = config_path.as_deref().unwrap_or("eval_config.toml");
+    let mut judge_config: Option<eval_core::model::ModelConfig> = None;
     if Path::new(cfg_to_try).exists() {
         if let Ok(cfg_file) = ConfigFile::load_from_file(cfg_to_try) {
-            if let Some(prof) = cfg_file.models.into_iter().find(|m| m.id == model_id_or_name || m.model_name == model_id_or_name) {
+            judge_config = cfg_file
+                .judge
+                .clone()
+                .map(|profile| profile.to_model_config());
+            if let Some(prof) = cfg_file
+                .models
+                .into_iter()
+                .find(|m| m.id == model_id_or_name || m.model_name == model_id_or_name)
+            {
                 resolved_config = Some(prof.to_model_config());
             }
         }
@@ -69,22 +79,40 @@ pub async fn execute_verify(
         }
     }
 
-    let claimed_target_owned = target
-        .unwrap_or_else(|| model_config.model_name.clone());
+    let claimed_target_owned = target.unwrap_or_else(|| model_config.model_name.clone());
 
-    let client = create_client(model_config.clone())
-        .with_context(|| "Failed to create model client")?;
+    let client =
+        create_client(model_config.clone()).with_context(|| "Failed to create model client")?;
 
     if agentic {
         if !as_json {
-            println!("\n🤖 正在启动由 LLM 驱动的自主智能验真 Agent 对抗审计 (Autonomous Agentic Audit)...");
+            println!("\n🤖 正在启动动态对抗审计（确定性探针 + 可选 LLM 点评）...");
             println!("  - 测试端点标识: {}", model_config.id);
             println!("  - 标称真实模型: {}", claimed_target_owned);
-            println!("  - 审计机制: 现场动态合成对抗探针 + 多轮交叉审讯式反问 + 权威基线漂移校验");
+            println!("  - 审计机制: 现场动态探针 + 多轮交叉审讯 + 可选独立 LLM 点评；未运行公开 benchmark/交叉核验时不做基线漂移判定");
             println!("  - 正在执行对抗审讯中，请稍候...\n");
         }
 
-        let audit_report = VerificationAgent::audit(&*client, None, Some(&claimed_target_owned)).await?;
+        let auditor = judge_config
+            .as_ref()
+            .filter(|cfg| {
+                !cfg.api_key
+                    .as_deref()
+                    .map(|k| k.starts_with("env:"))
+                    .unwrap_or(false)
+            })
+            .and_then(|cfg| create_client(cfg.clone()).ok());
+        if auditor.is_none() && !as_json {
+            println!("  - 未配置可用 judge；本次仅执行确定性探针，不生成 LLM 审计点评。");
+        }
+        let crosscheck_cases = load_crosscheck_cases();
+        let audit_report = VerificationAgent::audit_with_benchmark(
+            &*client,
+            auditor.as_deref(),
+            Some(&claimed_target_owned),
+            &crosscheck_cases,
+        )
+        .await?;
 
         if as_json {
             println!("{}", serde_json::to_string_pretty(&audit_report)?);
@@ -96,7 +124,7 @@ pub async fn execute_verify(
     }
 
     if !as_json {
-        println!("\n🔍 正在启动模型真实度与防伪嗅探 (Authenticity & Fingerprint Verification)...");
+        println!("\n🔍 正在启动多信号证据核验（固定探针 + 公开 benchmark 小样本；非认证）...");
         println!("  - 测试端点标识: {}", model_config.id);
         println!("  - 标称真实模型: {}", claimed_target_owned);
         println!("  - API 协议类型: {:?}", model_config.protocol);
@@ -104,7 +132,19 @@ pub async fn execute_verify(
         println!("  - 正在并发探测中，请稍候...\n");
     }
 
-    let report = ModelVerifier::verify(&*client, Some(&claimed_target_owned)).await?;
+    let crosscheck_cases = load_crosscheck_cases();
+    if !as_json {
+        println!(
+            "  - 公开 benchmark 交叉核验: {} 条（GSM8K/MMLU 小样本；能力证据，非身份证明）",
+            crosscheck_cases.len()
+        );
+    }
+    let report = ModelVerifier::verify_with_benchmark(
+        &*client,
+        Some(&claimed_target_owned),
+        &crosscheck_cases,
+    )
+    .await?;
 
     if as_json {
         println!("{}", serde_json::to_string_pretty(&report)?);
@@ -115,16 +155,29 @@ pub async fn execute_verify(
     Ok(())
 }
 
+fn load_crosscheck_cases() -> Vec<TestCase> {
+    let mut cases = Vec::new();
+    for path in [
+        "datasets/foundation/math_gsm8k.jsonl",
+        "datasets/domain/mmlu_domain.jsonl",
+    ] {
+        if let Ok(dataset) = DatasetLoader::load_from_jsonl(Path::new(path)) {
+            cases.extend(dataset.test_cases.into_iter().take(8));
+        }
+    }
+    cases
+}
+
 fn print_terminal_report(report: &VerificationReport) {
     println!("══════════════════════════════════════════════════════════════════════════════");
-    println!("                  🛡️  AGENT-BENCH 一键模型验真审计凭证报告");
+    println!("                  🛡️  AGENT-BENCH 多信号证据核验报告（非认证）");
     println!("══════════════════════════════════════════════════════════════════════════════");
     println!("测试模型标识 : {}", report.model_id);
     println!("标称真实模型 : {}", report.claimed_target);
     println!("验真完成时间 : {}", report.verified_at);
     println!("探测总计耗时 : {} ms", report.total_latency_ms);
-    println!("真实度得分   : {:.1} / 100.0", report.authenticity_score);
-    println!("验真最终结论 : {}", report.verdict_title);
+    println!("证据分       : {:.1} / 100.0", report.evidence_score);
+    println!("核验结论     : {}", report.verdict_title);
     println!("估算量化级别 : {}", report.quantization_estimate);
 
     if !report.risk_tags.is_empty() {
@@ -164,6 +217,7 @@ fn print_terminal_report(report: &VerificationReport) {
 
     println!("\n【各项高敏探针检测明细】:");
     println!("{table}");
+    print_signals(report);
 
     // Table of baseline drift if available
     if let Some(ref drift) = report.baseline_drift {
@@ -173,18 +227,105 @@ fn print_terminal_report(report: &VerificationReport) {
     println!("══════════════════════════════════════════════════════════════════════════════\n");
 }
 
+fn print_signals(report: &VerificationReport) {
+    if report.signals.is_empty() {
+        return;
+    }
+    let mut table = Table::new();
+    table.load_preset(UTF8_FULL);
+    table.apply_modifier(UTF8_ROUND_CORNERS);
+    table.set_header(vec![
+        Cell::new("信号"),
+        Cell::new("类别"),
+        Cell::new("状态"),
+        Cell::new("权重"),
+        Cell::new("证据"),
+    ]);
+    for s in &report.signals {
+        let status = match s.status.as_str() {
+            "passed" => Cell::new("✓ 通过").fg(Color::Green),
+            "failed" => Cell::new("✕ 失败").fg(Color::Red),
+            _ => Cell::new("? 不确定").fg(Color::Yellow),
+        };
+        table.add_row(Row::from(vec![
+            Cell::new(&s.label),
+            Cell::new(&s.category),
+            status,
+            Cell::new(format!("{:.1}", s.weight)),
+            Cell::new(&s.detail),
+        ]));
+    }
+    println!(
+        "
+【多信号证据矩阵】:"
+    );
+    println!("{table}");
+    if !report.caveats.is_empty() {
+        println!(
+            "
+【边界说明】:"
+        );
+        for c in &report.caveats {
+            println!("  - {c}");
+        }
+    }
+}
+
+fn print_agent_signals(report: &AgentAuditReport) {
+    if report.signals.is_empty() {
+        return;
+    }
+    let mut table = Table::new();
+    table.load_preset(UTF8_FULL);
+    table.apply_modifier(UTF8_ROUND_CORNERS);
+    table.set_header(vec![
+        Cell::new("信号"),
+        Cell::new("状态"),
+        Cell::new("证据"),
+    ]);
+    for s in &report.signals {
+        let status = match s.status.as_str() {
+            "passed" => Cell::new("✓ 通过").fg(Color::Green),
+            "failed" => Cell::new("✕ 失败").fg(Color::Red),
+            _ => Cell::new("? 不确定").fg(Color::Yellow),
+        };
+        table.add_row(Row::from(vec![
+            Cell::new(&s.label),
+            status,
+            Cell::new(&s.detail),
+        ]));
+    }
+    println!(
+        "
+【动态证据矩阵】:"
+    );
+    println!("{table}");
+    if !report.caveats.is_empty() {
+        println!(
+            "
+【边界说明】:"
+        );
+        for c in &report.caveats {
+            println!("  - {c}");
+        }
+    }
+}
+
 fn print_agent_audit_report(report: &AgentAuditReport) {
     println!("══════════════════════════════════════════════════════════════════════════════");
-    println!("             🤖  AGENT-BENCH LLM-DRIVEN 自主智能验真 Agent 对抗审计凭证");
+    println!("             🤖  AGENT-BENCH 动态证据报告（确定性探针 + 可选 LLM 点评；非认证）");
     println!("══════════════════════════════════════════════════════════════════════════════");
     println!("审计单号     : {}", report.audit_id);
     println!("目标端点模型 : {}", report.target_model);
-    println!("对标权威基线 : {}", report.canonical_baseline_name);
+    println!("参考基线     : {}", report.canonical_baseline_name);
     println!("审计生成时间 : {}", report.timestamp);
     println!("总计对抗耗时 : {} ms", report.total_latency_ms);
-    println!("真实度得分   : {:.1} / 100.0", report.authenticity_score);
-    println!("审计终局裁定 : {}", report.verdict_title);
-    println!("阿谀附和指数 : {:.1}% ({})", report.sycophancy_index, report.sycophancy_assessment);
+    println!("证据分       : {:.1} / 100.0", report.evidence_score);
+    println!("证据裁定     : {}", report.verdict_title);
+    println!(
+        "阿谀附和指数 : {:.1}% ({})",
+        report.sycophancy_index, report.sycophancy_assessment
+    );
 
     println!("──────────────────────────────────────────────────────────────────────────────");
     println!("【Agent 裁决摘要】:\n{}", report.executive_summary);
@@ -235,7 +376,10 @@ fn print_agent_audit_report(report: &AgentAuditReport) {
             println!("  [第 {} 轮审讯: {}]", i + 1, ce.probe_title);
             println!("    - 初次答复截选: {}", ce.target_initial_answer);
             println!("    - 审讯员伪诱导: {}", ce.interrogator_challenge);
-            println!("    - 模型辩护回复: {}", ce.target_defense_response.lines().next().unwrap_or(""));
+            println!(
+                "    - 模型辩护回复: {}",
+                ce.target_defense_response.lines().next().unwrap_or("")
+            );
             let tag = if ce.sycophancy_detected {
                 "🚨 判定: 妥协盲从 (Sycophancy Trap Triggered)"
             } else {
@@ -250,6 +394,7 @@ fn print_agent_audit_report(report: &AgentAuditReport) {
         print_baseline_drift_table(drift);
     }
 
+    print_agent_signals(report);
     println!("══════════════════════════════════════════════════════════════════════════════\n");
 }
 
@@ -259,8 +404,14 @@ fn print_baseline_drift_table(drift: &BaselineDriftReport) {
     }
 
     println!("\n【权威榜单官方公布分与实测偏离度漂移分析 (Ground Truth Baselines)】:");
-    println!("基准对标厂商 : {} | 论文/技术报告: {}", drift.vendor, drift.tech_report_url);
-    println!("综合偏离漂移 : {:+.1}% | 裁决结论: {}", drift.mean_drift_pct, drift.verdict);
+    println!(
+        "基准对标厂商 : {} | 论文/技术报告: {}",
+        drift.vendor, drift.tech_report_url
+    );
+    println!(
+        "综合偏离漂移 : {:+.1}% | 裁决结论: {}",
+        drift.mean_drift_pct, drift.verdict
+    );
 
     let mut b_table = Table::new();
     b_table.load_preset(UTF8_FULL);
@@ -279,7 +430,9 @@ fn print_baseline_drift_table(drift: &BaselineDriftReport) {
             DriftStatus::Matching => Cell::new(c.status.display_badge()).fg(Color::Green),
             DriftStatus::MinorDeficit => Cell::new(c.status.display_badge()).fg(Color::Yellow),
             DriftStatus::SevereDeficit => Cell::new(c.status.display_badge()).fg(Color::Red),
-            DriftStatus::SuspiciousOverfit => Cell::new(c.status.display_badge()).fg(Color::Magenta),
+            DriftStatus::SuspiciousOverfit => {
+                Cell::new(c.status.display_badge()).fg(Color::Magenta)
+            }
         };
 
         b_table.add_row(Row::from(vec![

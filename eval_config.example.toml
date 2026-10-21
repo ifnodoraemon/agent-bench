@@ -1,4 +1,17 @@
 # ==============================================================================
+# agent-bench 示例配置
+# 用法: cp eval_config.example.toml eval_config.toml
+# 密钥请放在环境变量中（支持 env:VAR），不要把真实密钥提交进仓库。
+#
+# 注意:
+# - Agent/CodeExecution 需要 bubblewrap(bwrap)；未安装时默认拒绝执行。
+# - Judge 可选；没有 judge 时 llm_judge 与依赖 criteria 的 agent 题会失败，而不会猜分。
+# - Dashboard 默认禁止 Web 请求覆盖 base_url/api_key/protocol；自定义端点需
+#   `agent-bench dashboard --allow-custom-endpoints`，且自定义 base_url 必须显式给 api_key。
+# - 本文件中的 2026 模型名称/价格仅作配置示例；基线库中的 verified=false 条目不会参与漂移判定。
+# ==============================================================================
+
+# ==============================================================================
 # 🦀 agent-bench 2026 最新旗舰大模型与 Agent 评测配置示例
 # 架构原则：protocol 显式指定传输协议格式 ("openai_chat" | "openai_response" | "anthropic" | "gemini" | "mock")
 # 环境变量解析：支持通过 "env:VARIABLE_NAME" 自动安全注入 API 密钥与服务端点

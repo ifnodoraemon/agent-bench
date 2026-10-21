@@ -30,7 +30,11 @@ impl TerminalReporter {
             b.overall_accuracy
                 .partial_cmp(&a.overall_accuracy)
                 .unwrap_or(std::cmp::Ordering::Equal)
-                .then_with(|| b.elo_rating.partial_cmp(&a.elo_rating).unwrap_or(std::cmp::Ordering::Equal))
+                .then_with(|| {
+                    b.elo_rating
+                        .partial_cmp(&a.elo_rating)
+                        .unwrap_or(std::cmp::Ordering::Equal)
+                })
         });
 
         for summary in &sorted_summaries {
@@ -66,7 +70,8 @@ impl TerminalReporter {
                 ))
                 .fg(acc_color),
                 Cell::new(format!("{:.1}%", summary.macro_accuracy * 100.0)).fg(acc_color),
-                Cell::new(format!("{:.1}%", summary.l4_l5_frontier_accuracy * 100.0)).fg(frontier_color),
+                Cell::new(format!("{:.1}%", summary.l4_l5_frontier_accuracy * 100.0))
+                    .fg(frontier_color),
                 Cell::new(format!("{:.1}", summary.weighted_composite_index)).fg(Color::Magenta),
                 Cell::new(format!("{:.0}ms", summary.avg_latency_ms)),
                 Cell::new(format!("{:.0}ms", summary.p95_latency_ms)),
@@ -113,7 +118,10 @@ impl TerminalReporter {
                 cat_table.add_row(vec![
                     Cell::new(&summary.model_name),
                     Cell::new(cat).add_attribute(Attribute::Bold),
-                    Cell::new(format!("{}/{}", cat_stats.passed_cases, cat_stats.total_cases)),
+                    Cell::new(format!(
+                        "{}/{}",
+                        cat_stats.passed_cases, cat_stats.total_cases
+                    )),
                     Cell::new(format!("{:.1}%", cat_stats.accuracy * 100.0)).fg(acc_color),
                     Cell::new(format!("{:.2}", cat_stats.avg_score)),
                     Cell::new(format!("{:.0}ms", cat_stats.avg_latency_ms)),

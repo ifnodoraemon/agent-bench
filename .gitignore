@@ -17,3 +17,7 @@ eval_gpustack.toml
 .idea/
 .vscode/
 *.swp
+
+# Python cache
+__pycache__/
+*.pyc

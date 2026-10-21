@@ -1,6 +1,6 @@
 use super::{
     CodeSandboxEvaluator, EvaluationResult, Evaluator, ExactMatchEvaluator, JsonSchemaEvaluator,
-    RegexEvaluator,
+    MultipleChoiceEvaluator, NumericEvaluator, RegexEvaluator, ToolCallEvaluator,
 };
 use crate::dataset::{EvaluationType, TestCase};
 use crate::model::ModelResponse;
@@ -20,10 +20,22 @@ impl EvaluatorRegistry {
         let mut registry = Self {
             strategies: HashMap::new(),
         };
-        registry.register(EvaluationType::ExactMatch, Arc::new(ExactMatchEvaluator::default()));
+        registry.register(
+            EvaluationType::ExactMatch,
+            Arc::new(ExactMatchEvaluator::default()),
+        );
         registry.register(EvaluationType::Regex, Arc::new(RegexEvaluator));
+        registry.register(EvaluationType::Numeric, Arc::new(NumericEvaluator));
+        registry.register(
+            EvaluationType::MultipleChoice,
+            Arc::new(MultipleChoiceEvaluator),
+        );
+        registry.register(EvaluationType::ToolCall, Arc::new(ToolCallEvaluator));
         registry.register(EvaluationType::JsonSchema, Arc::new(JsonSchemaEvaluator));
-        registry.register(EvaluationType::CodeExecution, Arc::new(CodeSandboxEvaluator::default()));
+        registry.register(
+            EvaluationType::CodeExecution,
+            Arc::new(CodeSandboxEvaluator::default()),
+        );
         registry
     }
 
@@ -38,7 +50,11 @@ impl EvaluatorRegistry {
     }
 
     /// Direct evaluation dispatch via registered strategy
-    pub async fn evaluate(&self, test_case: &TestCase, response: &ModelResponse) -> Result<EvaluationResult> {
+    pub async fn evaluate(
+        &self,
+        test_case: &TestCase,
+        response: &ModelResponse,
+    ) -> Result<EvaluationResult> {
         if let Some(strategy) = self.get(&test_case.eval_type) {
             strategy.evaluate(test_case, response).await
         } else {
@@ -90,7 +106,10 @@ mod tests {
             raw_response: None,
         };
 
-        let res = registry.evaluate(&tc, &resp).await.expect("Evaluation should succeed");
+        let res = registry
+            .evaluate(&tc, &resp)
+            .await
+            .expect("Evaluation should succeed");
         assert!(res.passed);
         assert_eq!(res.score, 1.0);
     }

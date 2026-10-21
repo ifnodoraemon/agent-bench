@@ -20,7 +20,11 @@ impl MarkdownReporter {
             b.overall_accuracy
                 .partial_cmp(&a.overall_accuracy)
                 .unwrap_or(std::cmp::Ordering::Equal)
-                .then_with(|| b.elo_rating.partial_cmp(&a.elo_rating).unwrap_or(std::cmp::Ordering::Equal))
+                .then_with(|| {
+                    b.elo_rating
+                        .partial_cmp(&a.elo_rating)
+                        .unwrap_or(std::cmp::Ordering::Equal)
+                })
         });
 
         for (i, s) in sorted_summaries.iter().enumerate() {
@@ -82,11 +86,22 @@ impl MarkdownReporter {
         for s in summaries {
             let failed_cases: Vec<_> = s.case_results.iter().filter(|c| !c.passed).collect();
             if failed_cases.is_empty() {
-                md.push_str(&format!("### Model: `{}` (All test cases passed! 🎉)\n\n", s.model_name));
+                md.push_str(&format!(
+                    "### Model: `{}` (All test cases passed! 🎉)\n\n",
+                    s.model_name
+                ));
             } else {
-                md.push_str(&format!("### Model: `{}` (Failed: {} cases)\n\n", s.model_name, failed_cases.len()));
+                md.push_str(&format!(
+                    "### Model: `{}` (Failed: {} cases)\n\n",
+                    s.model_name,
+                    failed_cases.len()
+                ));
                 for fc in failed_cases {
-                    md.push_str(&format!("- **Case ID:** `{}` (Category: `{}`)\n", fc.test_case_id, fc.category.as_str()));
+                    md.push_str(&format!(
+                        "- **Case ID:** `{}` (Category: `{}`)\n",
+                        fc.test_case_id,
+                        fc.category.as_str()
+                    ));
                     md.push_str(&format!("  - **Failure Reason:** {}\n", fc.reason));
                     let flat_output = fc.model_output.replace('\n', " ");
                     let char_count = flat_output.chars().count();

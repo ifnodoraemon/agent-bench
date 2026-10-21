@@ -1,5 +1,5 @@
 use anyhow::{Context, Result};
-use eval_core::metrics::{EloCalculator, ModelBenchmarkSummary};
+use eval_core::metrics::ModelBenchmarkSummary;
 use eval_core::reporter::TerminalReporter;
 use std::fs;
 use std::path::Path;
@@ -63,45 +63,21 @@ pub fn execute_compare(result_files: Vec<String>) -> Result<()> {
     for s in all_summaries {
         model_map.insert(s.model_id.clone(), s);
     }
-    let unique_summaries: Vec<ModelBenchmarkSummary> = model_map.into_values().collect();
+    let mut unique_summaries: Vec<ModelBenchmarkSummary> = model_map.into_values().collect();
+    ModelBenchmarkSummary::compute_head_to_head_elo(&mut unique_summaries);
 
-    // Render leaderboard table
+    // Render leaderboard table (Elo already converged).
     let table = TerminalReporter::render_summary(&unique_summaries);
     println!("{table}");
 
-    // Compute pairwise battle Elo if multiple models exist
     if unique_summaries.len() >= 2 {
-        println!("⚔️ === PAIRWISE ELO RATINGS ===");
-        let elo_calc = EloCalculator::default();
-        let model_names: Vec<String> = unique_summaries.iter().map(|s| s.model_name.clone()).collect();
-        let mut battles = Vec::new();
-
-        // Compare score across identical test cases
-        for i in 0..unique_summaries.len() {
-            for j in (i + 1)..unique_summaries.len() {
-                let m_a = &unique_summaries[i];
-                let m_b = &unique_summaries[j];
-
-                for case_a in &m_a.case_results {
-                    if let Some(case_b) = m_b.case_results.iter().find(|c| c.test_case_id == case_a.test_case_id) {
-                        let score_a = if case_a.score > case_b.score {
-                            1.0
-                        } else if (case_a.score - case_b.score).abs() < 0.001 {
-                            0.5
-                        } else {
-                            0.0
-                        };
-                        battles.push((m_a.model_name.as_str(), m_b.model_name.as_str(), score_a));
-                    }
-                }
-            }
-        }
-
-        let ratings = elo_calc.compute_ratings(&model_names, &battles);
-        let mut sorted_ratings: Vec<_> = ratings.into_iter().collect();
-        sorted_ratings.sort_by(|a, b| b.1.partial_cmp(&a.1).unwrap());
-
-        for (rank, (model, elo)) in sorted_ratings.iter().enumerate() {
+        println!("⚔️ === PAIRWISE ELO RATINGS (aggregated win-rate, heuristic) ===");
+        let mut sorted: Vec<_> = unique_summaries
+            .iter()
+            .map(|s| (s.model_name.clone(), s.elo_rating))
+            .collect();
+        sorted.sort_by(|a, b| b.1.partial_cmp(&a.1).unwrap_or(std::cmp::Ordering::Equal));
+        for (rank, (model, elo)) in sorted.iter().enumerate() {
             println!("{}. {:<25} -> Elo: {:.0}", rank + 1, model, elo);
         }
         println!();
@@ -114,8 +90,12 @@ pub fn execute_compare(result_files: Vec<String>) -> Result<()> {
         let _ = fs::create_dir_all(out_dir);
     }
     let index_path = out_dir.join("index.html");
-    fs::write(&index_path, html_content)
-        .with_context(|| format!("Failed to write HTML dashboard to: {}", index_path.display()))?;
+    fs::write(&index_path, html_content).with_context(|| {
+        format!(
+            "Failed to write HTML dashboard to: {}",
+            index_path.display()
+        )
+    })?;
     println!("🌐 Visual dashboard updated at: {}", index_path.display());
 
     Ok(())

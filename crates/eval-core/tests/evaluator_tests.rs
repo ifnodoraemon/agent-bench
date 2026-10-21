@@ -1,11 +1,13 @@
 use eval_core::dataset::{Category, EvaluationType, TestCase};
 use eval_core::evaluators::{
-    CodeSandboxEvaluator, ExactMatchEvaluator, JsonSchemaEvaluator, RegexEvaluator, Evaluator,
+    CodeSandboxEvaluator, Evaluator, ExactMatchEvaluator, JsonSchemaEvaluator, LlmJudgeEvaluator,
+    RegexEvaluator,
 };
 use eval_core::metrics::EloCalculator;
-use eval_core::model::{ModelResponse, TokenUsage};
+use eval_core::model::{MockClient, ModelResponse, TokenUsage};
 use serde_json::json;
 use std::collections::HashMap;
+use std::sync::Arc;
 use std::time::Duration;
 
 fn dummy_response(text: impl Into<String>) -> ModelResponse {
@@ -60,15 +62,35 @@ async fn test_exact_match_evaluator() {
 
     let resp_partial = dummy_response("The capital of France is Paris.");
     let res2 = eval.evaluate(&tc, &resp_partial).await.unwrap();
-    assert!(res2.passed);
-    assert_eq!(res2.score, 0.8);
+    assert!(
+        !res2.passed,
+        "exact_match must not accept substring answers"
+    );
+    assert_eq!(res2.score, 0.0);
+    let res_num = eval.evaluate(&tc, &dummy_response("4.0")).await.unwrap();
+    let mut tc_num = tc.clone();
+    tc_num.reference_answer = Some("4".to_string());
+    assert!(
+        eval.evaluate(&tc_num, &dummy_response("4.0"))
+            .await
+            .unwrap()
+            .passed
+    );
+    let _ = res_num;
 
     // Test math CoT with \boxed{\frac{1}{6}}
     let mut tc_math = make_test_case("tc_math", EvaluationType::ExactMatch);
     tc_math.reference_answer = Some("1/6".to_string());
     let math_cot = r#"we have two fair 6-sided dice. total possible outcomes: \( 6 \times 6 = 36 \). now, count the outcomes where the sum is 7: - (1, 6) - (2, 5) - (3, 4) - (4, 3) - (5, 2) - (6, 1) that’s 6 favorable outcomes. probability = \(\frac{6}{36} = \frac{1}{6}\). \[ \boxed{\frac{1}{6}} \]"#;
-    let res_math = eval.evaluate(&tc_math, &dummy_response(math_cot)).await.unwrap();
-    assert!(res_math.passed, "Math reasoning with boxed fraction should pass! Reason: {}", res_math.reason);
+    let res_math = eval
+        .evaluate(&tc_math, &dummy_response(math_cot))
+        .await
+        .unwrap();
+    assert!(
+        res_math.passed,
+        "Math reasoning with boxed fraction should pass! Reason: {}",
+        res_math.reason
+    );
     assert_eq!(res_math.score, 1.0);
 
     let resp_fail = dummy_response("London");
@@ -136,4 +158,74 @@ fn test_elo_calculator() {
     let (new_a, new_b) = calc.update_rating(1000.0, 1000.0, 1.0);
     assert_eq!(new_a, 1016.0);
     assert_eq!(new_b, 984.0);
+}
+
+#[tokio::test]
+async fn test_regex_negative_constraint() {
+    let eval = RegexEvaluator::new();
+    let mut tc = make_test_case("tc_neg", EvaluationType::Regex);
+    tc.criteria = Some("(?i)(fruit.*sweet|sweet.*fruit)".to_string());
+    tc.metadata
+        .insert("must_not_match".to_string(), json!(["(?i)banana"]));
+    let pass = eval
+        .evaluate(&tc, &dummy_response("An apple is a sweet fruit."))
+        .await
+        .unwrap();
+    assert!(pass.passed);
+    let fail = eval
+        .evaluate(
+            &tc,
+            &dummy_response("An apple is a sweet fruit; banana is also a fruit."),
+        )
+        .await
+        .unwrap();
+    assert!(!fail.passed);
+}
+
+#[tokio::test]
+async fn test_llm_judge_non_json_fails_closed() {
+    let judge: Arc<dyn eval_core::model::ModelClient> =
+        Arc::new(MockClient::new("judge", "judge").with_default_response("I think it is correct."));
+    let eval = LlmJudgeEvaluator::new(judge);
+    let mut tc = make_test_case("tc_judge", EvaluationType::LlmJudge);
+    tc.criteria = Some("answer must be 4".to_string());
+    let res = eval
+        .evaluate(&tc, &dummy_response("The answer is 4"))
+        .await
+        .unwrap();
+    assert!(!res.passed);
+    assert!(res.reason.contains("non-JSON"));
+}
+
+#[tokio::test]
+async fn test_humaneval_style_harness() {
+    let eval = CodeSandboxEvaluator::default();
+    let mut tc = make_test_case("humaneval_harness", EvaluationType::CodeExecution);
+    tc.test_code = Some(
+        "def check(candidate):\n    assert candidate(2) == 4\n    assert candidate(3) == 6\ncheck(solve)\n"
+            .to_string(),
+    );
+    let res = eval
+        .evaluate(
+            &tc,
+            &dummy_response("```python\ndef solve(x):\n    return x * 2\n```"),
+        )
+        .await
+        .unwrap();
+    assert!(res.passed, "reason={}", res.reason);
+}
+
+#[tokio::test]
+async fn test_mbpp_style_harness() {
+    let eval = CodeSandboxEvaluator::default();
+    let mut tc = make_test_case("mbpp_harness", EvaluationType::CodeExecution);
+    tc.test_code = Some("assert add(1, 2) == 3\nassert add(-1, 1) == 0\n".to_string());
+    let res = eval
+        .evaluate(
+            &tc,
+            &dummy_response("```python\ndef add(a, b):\n    return a + b\n```"),
+        )
+        .await
+        .unwrap();
+    assert!(res.passed, "reason={}", res.reason);
 }

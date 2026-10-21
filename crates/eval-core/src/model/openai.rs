@@ -36,7 +36,10 @@ impl OpenAICompatibleClient {
         // Inject custom headers if provided
         if let Some(ref custom_map) = config.custom_headers {
             for (k, v) in custom_map {
-                if let (Ok(hn), Ok(hv)) = (HeaderName::from_bytes(k.as_bytes()), HeaderValue::from_str(v)) {
+                if let (Ok(hn), Ok(hv)) = (
+                    HeaderName::from_bytes(k.as_bytes()),
+                    HeaderValue::from_str(v),
+                ) {
                     headers.insert(hn, hv);
                 }
             }
@@ -91,7 +94,9 @@ impl OpenAICompatibleClient {
             match resp_result {
                 Ok(resp) => {
                     let status = resp.status();
-                    if (status.as_u16() == 429 || status.is_server_error()) && attempts < max_attempts {
+                    if (status.as_u16() == 429 || status.is_server_error())
+                        && attempts < max_attempts
+                    {
                         tokio::time::sleep(delay).await;
                         delay *= 2;
                         continue;
@@ -108,7 +113,9 @@ impl OpenAICompatibleClient {
                         delay *= 2;
                         continue;
                     }
-                    return Err(anyhow!("Network request failed after {attempts} attempts: {e}"));
+                    return Err(anyhow!(
+                        "Network request failed after {attempts} attempts: {e}"
+                    ));
                 }
             }
         }
@@ -180,7 +187,9 @@ impl ModelClient for OpenAICompatibleClient {
         loop {
             attempts += 1;
             let start_time = Instant::now();
-            let req_res = self.execute_streaming_request(&body, messages, start_time).await;
+            let req_res = self
+                .execute_streaming_request(&body, messages, start_time)
+                .await;
 
             match req_res {
                 Ok(resp) => {
@@ -195,7 +204,10 @@ impl ModelClient for OpenAICompatibleClient {
                         continue;
                     }
 
-                    if resp.text.trim().is_empty() && resp.tool_calls.is_none() && attempts < max_attempts {
+                    if resp.text.trim().is_empty()
+                        && resp.tool_calls.is_none()
+                        && attempts < max_attempts
+                    {
                         tracing::warn!("Model returned empty output on attempt {attempts}, retrying in {retry_delay:?}...");
                         tokio::time::sleep(retry_delay).await;
                         retry_delay *= 2;
@@ -214,7 +226,9 @@ impl ModelClient for OpenAICompatibleClient {
                     // Fallback to robust non-streaming HTTP POST request as ultimate safety net
                     tracing::warn!("All {max_attempts} streaming attempts failed ({e}). Falling back to non-streaming request...");
                     let start_time = Instant::now();
-                    return self.execute_non_streaming_request(&body, messages, start_time).await;
+                    return self
+                        .execute_non_streaming_request(&body, messages, start_time)
+                        .await;
                 }
             }
         }
@@ -245,11 +259,18 @@ impl OpenAICompatibleClient {
                 Ok(Some(ev_res)) => ev_res,
                 Ok(None) => break,
                 Err(_) => {
-                    if !full_text.is_empty() || !reasoning_text.is_empty() || !raw_tool_calls.is_empty() {
-                        tracing::info!("SSE stream chunk timed out after 35s. Salvaging accumulated response.");
+                    if !full_text.is_empty()
+                        || !reasoning_text.is_empty()
+                        || !raw_tool_calls.is_empty()
+                    {
+                        tracing::info!(
+                            "SSE stream chunk timed out after 35s. Salvaging accumulated response."
+                        );
                         break;
                     } else {
-                        return Err(anyhow::anyhow!("SSE stream timed out waiting for chunk from server (exceeded 35s)"));
+                        return Err(anyhow::anyhow!(
+                            "SSE stream timed out waiting for chunk from server (exceeded 35s)"
+                        ));
                     }
                 }
             };
@@ -258,11 +279,16 @@ impl OpenAICompatibleClient {
                 Ok(ev) => ev,
                 Err(err) => {
                     // Gracefully salvage content if server disconnected after outputting response
-                    if !full_text.is_empty() || !reasoning_text.is_empty() || !raw_tool_calls.is_empty() {
+                    if !full_text.is_empty()
+                        || !reasoning_text.is_empty()
+                        || !raw_tool_calls.is_empty()
+                    {
                         tracing::info!("Gracefully salvaging accumulated response despite SSE stream termination: {err}");
                         break;
                     } else {
-                        return Err(anyhow::anyhow!("SSE stream interrupted before receiving any content: {err}"));
+                        return Err(anyhow::anyhow!(
+                            "SSE stream interrupted before receiving any content: {err}"
+                        ));
                     }
                 }
             };
@@ -319,12 +345,11 @@ impl OpenAICompatibleClient {
                                 first_token_time = Some(start_time.elapsed());
                             }
                             for tc in t_calls {
-                                let index = tc.get("index").and_then(|i| i.as_u64()).unwrap_or(0) as usize;
-                                let entry = raw_tool_calls.entry(index).or_insert_with(|| (
-                                    String::new(),
-                                    String::new(),
-                                    String::new(),
-                                ));
+                                let index =
+                                    tc.get("index").and_then(|i| i.as_u64()).unwrap_or(0) as usize;
+                                let entry = raw_tool_calls.entry(index).or_insert_with(|| {
+                                    (String::new(), String::new(), String::new())
+                                });
 
                                 if let Some(id) = tc.get("id").and_then(|i| i.as_str()) {
                                     entry.0.push_str(id);
@@ -333,7 +358,9 @@ impl OpenAICompatibleClient {
                                     if let Some(name) = func.get("name").and_then(|n| n.as_str()) {
                                         entry.1.push_str(name);
                                     }
-                                    if let Some(args) = func.get("arguments").and_then(|a| a.as_str()) {
+                                    if let Some(args) =
+                                        func.get("arguments").and_then(|a| a.as_str())
+                                    {
                                         entry.2.push_str(args);
                                     }
                                 }
@@ -352,7 +379,11 @@ impl OpenAICompatibleClient {
         for idx in sorted_indices {
             if let Some((id, name, args)) = raw_tool_calls.remove(&idx) {
                 final_tool_calls.push(ToolCall {
-                    id: if id.is_empty() { format!("call_{idx}") } else { id },
+                    id: if id.is_empty() {
+                        format!("call_{idx}")
+                    } else {
+                        id
+                    },
                     tool_type: "function".to_string(),
                     function: FunctionCall {
                         name,
@@ -382,7 +413,8 @@ impl OpenAICompatibleClient {
 
         // Deep reasoning & thinking tags extraction (<think>...</think>)
         if reasoning_text.is_empty() {
-            let (extracted_reasoning, cleaned_text) = ToolCallExtractor::extract_reasoning_and_clean_text(&full_text);
+            let (extracted_reasoning, cleaned_text) =
+                ToolCallExtractor::extract_reasoning_and_clean_text(&full_text);
             if let Some(r) = extracted_reasoning {
                 reasoning_text = r;
                 full_text = cleaned_text;
@@ -444,10 +476,19 @@ impl OpenAICompatibleClient {
             .and_then(|arr| arr.first())
             .ok_or_else(|| anyhow::anyhow!("No choices returned in non-streaming response"))?;
 
-        let finish_reason = choice.get("finish_reason").and_then(|f| f.as_str()).map(|s| s.to_string());
+        let finish_reason = choice
+            .get("finish_reason")
+            .and_then(|f| f.as_str())
+            .map(|s| s.to_string());
 
-        let message = choice.get("message").ok_or_else(|| anyhow::anyhow!("No message object in choice"))?;
-        let mut text = message.get("content").and_then(|c| c.as_str()).unwrap_or("").to_string();
+        let message = choice
+            .get("message")
+            .ok_or_else(|| anyhow::anyhow!("No message object in choice"))?;
+        let mut text = message
+            .get("content")
+            .and_then(|c| c.as_str())
+            .unwrap_or("")
+            .to_string();
         let mut reasoning_content = message
             .get("reasoning_content")
             .or_else(|| message.get("reasoning"))
@@ -455,7 +496,8 @@ impl OpenAICompatibleClient {
             .map(|s| s.to_string());
 
         // Extract <think>...</think> if reasoning was not explicitly separated
-        let (extracted_reasoning, cleaned_text) = ToolCallExtractor::extract_reasoning_and_clean_text(&text);
+        let (extracted_reasoning, cleaned_text) =
+            ToolCallExtractor::extract_reasoning_and_clean_text(&text);
         if reasoning_content.is_none() && extracted_reasoning.is_some() {
             reasoning_content = extracted_reasoning;
             text = cleaned_text;
@@ -472,9 +514,23 @@ impl OpenAICompatibleClient {
         let mut final_tool_calls = Vec::new();
         if let Some(tcs) = message.get("tool_calls").and_then(|t| t.as_array()) {
             for (idx, tc) in tcs.iter().enumerate() {
-                let id = tc.get("id").and_then(|i| i.as_str()).unwrap_or(&format!("call_{idx}")).to_string();
-                let name = tc.get("function").and_then(|f| f.get("name")).and_then(|n| n.as_str()).unwrap_or("").to_string();
-                let arguments = tc.get("function").and_then(|f| f.get("arguments")).and_then(|a| a.as_str()).unwrap_or("").to_string();
+                let id = tc
+                    .get("id")
+                    .and_then(|i| i.as_str())
+                    .unwrap_or(&format!("call_{idx}"))
+                    .to_string();
+                let name = tc
+                    .get("function")
+                    .and_then(|f| f.get("name"))
+                    .and_then(|n| n.as_str())
+                    .unwrap_or("")
+                    .to_string();
+                let arguments = tc
+                    .get("function")
+                    .and_then(|f| f.get("arguments"))
+                    .and_then(|a| a.as_str())
+                    .unwrap_or("")
+                    .to_string();
                 final_tool_calls.push(ToolCall {
                     id,
                     tool_type: "function".to_string(),
@@ -484,8 +540,14 @@ impl OpenAICompatibleClient {
         }
 
         let usage = json_resp.get("usage");
-        let prompt_tokens = usage.and_then(|u| u.get("prompt_tokens")).and_then(|v| v.as_u64()).unwrap_or(0) as u32;
-        let completion_tokens = usage.and_then(|u| u.get("completion_tokens")).and_then(|v| v.as_u64()).unwrap_or(0) as u32;
+        let prompt_tokens = usage
+            .and_then(|u| u.get("prompt_tokens"))
+            .and_then(|v| v.as_u64())
+            .unwrap_or(0) as u32;
+        let completion_tokens = usage
+            .and_then(|u| u.get("completion_tokens"))
+            .and_then(|v| v.as_u64())
+            .unwrap_or(0) as u32;
 
         let total_duration = start_time.elapsed();
         let total_secs = total_duration.as_secs_f64();

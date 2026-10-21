@@ -1,9 +1,10 @@
+use crate::calc;
 use anyhow::{anyhow, Result};
 use serde_json::Value;
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
 
-pub trait SimulatedEnvironment: Send + Sync {
+pub trait SimulatedEnvironment: Send + Sync + 'static {
     fn execute_tool(&self, name: &str, arguments_json: &str) -> Result<String>;
     fn reset(&self);
 }
@@ -37,9 +38,24 @@ impl Default for MockSystemEnvironment {
 
         let mut db_tables = HashMap::new();
         let users = vec![
-            HashMap::from([("id".into(), "1".into()), ("name".into(), "Alice".into()), ("role".into(), "admin".into()), ("balance".into(), "5000".into())]),
-            HashMap::from([("id".into(), "2".into()), ("name".into(), "Bob".into()), ("role".into(), "user".into()), ("balance".into(), "250".into())]),
-            HashMap::from([("id".into(), "3".into()), ("name".into(), "Charlie".into()), ("role".into(), "user".into()), ("balance".into(), "0".into())]),
+            HashMap::from([
+                ("id".into(), "1".into()),
+                ("name".into(), "Alice".into()),
+                ("role".into(), "admin".into()),
+                ("balance".into(), "5000".into()),
+            ]),
+            HashMap::from([
+                ("id".into(), "2".into()),
+                ("name".into(), "Bob".into()),
+                ("role".into(), "user".into()),
+                ("balance".into(), "250".into()),
+            ]),
+            HashMap::from([
+                ("id".into(), "3".into()),
+                ("name".into(), "Charlie".into()),
+                ("role".into(), "user".into()),
+                ("balance".into(), "0".into()),
+            ]),
         ];
         db_tables.insert("users".to_string(), users);
 
@@ -54,7 +70,8 @@ impl Default for MockSystemEnvironment {
         );
         search_knowledge.insert(
             "antigravity".to_string(),
-            "Antigravity is an advanced agentic AI coding assistant developed by Google DeepMind.".to_string(),
+            "Antigravity is an advanced agentic AI coding assistant developed by Google DeepMind."
+                .to_string(),
         );
 
         Self {
@@ -72,11 +89,22 @@ impl MockSystemEnvironment {
     }
 
     pub fn inject_file(&self, path: impl Into<String>, content: impl Into<String>) {
-        self.files.lock().unwrap().insert(path.into(), content.into());
+        self.files
+            .lock()
+            .unwrap()
+            .insert(path.into(), content.into());
     }
 
-    pub fn inject_temporary_error(&self, tool_name: impl Into<String>, fail_times: usize, error_message: impl Into<String>) {
-        self.error_injections.lock().unwrap().insert(tool_name.into(), (fail_times, error_message.into()));
+    pub fn inject_temporary_error(
+        &self,
+        tool_name: impl Into<String>,
+        fail_times: usize,
+        error_message: impl Into<String>,
+    ) {
+        self.error_injections
+            .lock()
+            .unwrap()
+            .insert(tool_name.into(), (fail_times, error_message.into()));
     }
 }
 
@@ -132,7 +160,9 @@ impl SimulatedEnvironment for MockSystemEnvironment {
                         Ok("grep: missing arguments".to_string())
                     }
                 } else {
-                    Ok(format!("[Mock Bash] Executed: '{cmd}' -> Exit code 0"))
+                    Err(anyhow!(
+                        "[mock] unsupported bash command; use RealSubprocessBashEnv for real execution: {cmd}"
+                    ))
                 }
             }
             "search_web" => {
@@ -147,7 +177,9 @@ impl SimulatedEnvironment for MockSystemEnvironment {
                         return Ok(format!("Search Result for '{}': {}", query, v));
                     }
                 }
-                Ok(format!("Search Result: No specific records found for '{query}'."))
+                Ok(format!(
+                    "Search Result: No specific records found for '{query}'."
+                ))
             }
             "query_database" => {
                 let sql = parsed_args
@@ -157,35 +189,20 @@ impl SimulatedEnvironment for MockSystemEnvironment {
                 let db = self.db_tables.lock().unwrap();
                 if sql.to_lowercase().contains("users") {
                     if let Some(users) = db.get("users") {
-                        return Ok(serde_json::to_string_pretty(users)?);
+                        return Ok(format!(
+                            "[fixture] {}",
+                            serde_json::to_string_pretty(users)?
+                        ));
                     }
                 }
-                Ok("[] (0 rows returned)".to_string())
+                Ok("[fixture] [] (0 rows returned)".to_string())
             }
-            "calculator" => {
+            "calculator" | "calculate" | "calc" => {
                 let expr = parsed_args
                     .get("expression")
                     .and_then(|e| e.as_str())
                     .unwrap_or("");
-                let cleaned = expr.replace(' ', "");
-                if let Some(pos) = cleaned.find('+') {
-                    let a: f64 = cleaned[..pos].parse().unwrap_or(0.0);
-                    let b: f64 = cleaned[pos+1..].parse().unwrap_or(0.0);
-                    return Ok((a + b).to_string());
-                } else if let Some(pos) = cleaned.find('*') {
-                    let a: f64 = cleaned[..pos].parse().unwrap_or(0.0);
-                    let b: f64 = cleaned[pos+1..].parse().unwrap_or(0.0);
-                    return Ok((a * b).to_string());
-                } else if let Some(pos) = cleaned.find('-') {
-                    let a: f64 = cleaned[..pos].parse().unwrap_or(0.0);
-                    let b: f64 = cleaned[pos+1..].parse().unwrap_or(0.0);
-                    return Ok((a - b).to_string());
-                } else if let Some(pos) = cleaned.find('/') {
-                    let a: f64 = cleaned[..pos].parse().unwrap_or(0.0);
-                    let b: f64 = cleaned[pos+1..].parse().unwrap_or(1.0);
-                    return Ok((a / b).to_string());
-                }
-                Ok(format!("Calculated: {expr}"))
+                Ok(calc::evaluate_to_string(expr)?)
             }
             other => Err(anyhow!("Unknown tool: {other}")),
         }

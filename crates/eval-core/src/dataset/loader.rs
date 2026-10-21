@@ -21,13 +21,20 @@ impl DatasetLoader {
             if trimmed.is_empty() || trimmed.starts_with("//") || trimmed.starts_with('#') {
                 continue;
             }
-            let test_case: TestCase = serde_json::from_str(trimmed).with_context(|| {
+            let mut test_case: TestCase = serde_json::from_str(trimmed).with_context(|| {
                 format!(
                     "Failed to parse JSON on line {} of {}",
                     line_idx + 1,
                     path_ref.display()
                 )
             })?;
+            if !test_case.metadata.contains_key("dataset_group") {
+                if let Some(group) = infer_dataset_group(path_ref) {
+                    test_case
+                        .metadata
+                        .insert("dataset_group".to_string(), serde_json::json!(group));
+                }
+            }
             test_cases.push(test_case);
         }
 
@@ -65,4 +72,18 @@ impl DatasetLoader {
             test_cases,
         })
     }
+}
+
+fn infer_dataset_group(path: &Path) -> Option<&'static str> {
+    for component in path.components() {
+        let name = component.as_os_str().to_str()?;
+        match name {
+            "foundation" => return Some("foundation"),
+            "agent" => return Some("agent"),
+            "domain" => return Some("domain"),
+            "safety" => return Some("safety"),
+            _ => {}
+        }
+    }
+    None
 }

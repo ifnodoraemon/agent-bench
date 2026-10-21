@@ -19,3 +19,6 @@ jsonschema.workspace = true
 tempfile.workspace = true
 chrono.workspace = true
 rand.workspace = true
+libc.workspace = true
+reqwest.workspace = true
+rusqlite.workspace = true

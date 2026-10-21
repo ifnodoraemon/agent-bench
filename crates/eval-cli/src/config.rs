@@ -86,7 +86,10 @@ impl ModelProfile {
             ApiProtocol::OpenAiChat
         };
 
-        let provider_name = self.provider.clone().unwrap_or_else(|| protocol.to_string());
+        let provider_name = self
+            .provider
+            .clone()
+            .unwrap_or_else(|| protocol.to_string());
 
         ModelConfig {
             id: self.id.clone(),
@@ -122,8 +125,8 @@ impl ConfigFile {
         load_dotenv_if_exists();
         let content = fs::read_to_string(path.as_ref())
             .with_context(|| format!("Failed to read config file: {}", path.as_ref().display()))?;
-        let config: ConfigFile = toml::from_str(&content)
-            .with_context(|| "Failed to parse TOML configuration")?;
+        let config: ConfigFile =
+            toml::from_str(&content).with_context(|| "Failed to parse TOML configuration")?;
         Ok(config)
     }
 }

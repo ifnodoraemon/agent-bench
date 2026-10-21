@@ -91,7 +91,11 @@ impl ToolCallExtractor {
             // A. If body is valid JSON: {"name": "...", "arguments": {...}}
             if body.starts_with('{') {
                 if let Ok(v) = serde_json::from_str::<Value>(body) {
-                    let name = v.get("name").or_else(|| v.get("tool")).and_then(|n| n.as_str()).unwrap_or("");
+                    let name = v
+                        .get("name")
+                        .or_else(|| v.get("tool"))
+                        .and_then(|n| n.as_str())
+                        .unwrap_or("");
                     let args = if let Some(a) = v.get("arguments").or_else(|| v.get("parameters")) {
                         if a.is_string() {
                             a.as_str().unwrap().to_string()
@@ -138,10 +142,16 @@ impl ToolCallExtractor {
                         } else {
                             // Intermediate segment: value ending with newline and next_key
                             if let Some((val, next_key)) = seg.rsplit_once('\n') {
-                                map.insert(cur_key.to_string(), Value::String(val.trim().to_string()));
+                                map.insert(
+                                    cur_key.to_string(),
+                                    Value::String(val.trim().to_string()),
+                                );
                                 cur_key = next_key.trim();
                             } else {
-                                map.insert(cur_key.to_string(), Value::String(seg.trim().to_string()));
+                                map.insert(
+                                    cur_key.to_string(),
+                                    Value::String(seg.trim().to_string()),
+                                );
                             }
                         }
                     }
@@ -175,7 +185,11 @@ impl ToolCallExtractor {
         for cap in code_block_re.captures_iter(text) {
             let json_str = cap.get(1).map(|m| m.as_str().trim()).unwrap_or("");
             if let Ok(v) = serde_json::from_str::<Value>(json_str) {
-                let name = v.get("name").or_else(|| v.get("tool")).and_then(|n| n.as_str()).unwrap_or("");
+                let name = v
+                    .get("name")
+                    .or_else(|| v.get("tool"))
+                    .and_then(|n| n.as_str())
+                    .unwrap_or("");
                 let args = if let Some(a) = v.get("arguments").or_else(|| v.get("parameters")) {
                     if a.is_string() {
                         a.as_str().unwrap().to_string()
@@ -315,15 +329,22 @@ def load_config(): pass</arg_value></tool_call>"#;
 
     #[test]
     fn test_extract_reasoning_and_clean_text() {
-        let text = "<think>\nStep 1: Calculate 2 + 2 = 4\nStep 2: Format answer\n</think>\n\n\\boxed{4}";
+        let text =
+            "<think>\nStep 1: Calculate 2 + 2 = 4\nStep 2: Format answer\n</think>\n\n\\boxed{4}";
         let (reasoning, clean) = ToolCallExtractor::extract_reasoning_and_clean_text(text);
-        assert_eq!(reasoning, Some("Step 1: Calculate 2 + 2 = 4\nStep 2: Format answer".to_string()));
+        assert_eq!(
+            reasoning,
+            Some("Step 1: Calculate 2 + 2 = 4\nStep 2: Format answer".to_string())
+        );
         assert_eq!(clean, "\\boxed{4}");
 
         // Unclosed tag case
         let unclosed = "<think>I am currently thinking about the Riemann hypothesis";
         let (r2, c2) = ToolCallExtractor::extract_reasoning_and_clean_text(unclosed);
-        assert_eq!(r2, Some("I am currently thinking about the Riemann hypothesis".to_string()));
+        assert_eq!(
+            r2,
+            Some("I am currently thinking about the Riemann hypothesis".to_string())
+        );
         assert_eq!(c2, "");
     }
 }

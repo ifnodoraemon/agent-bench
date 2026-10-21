@@ -25,3 +25,7 @@ tracing-subscriber.workspace = true
 chrono.workspace = true
 indicatif.workspace = true
 comfy-table.workspace = true
+rand.workspace = true
+percent-encoding.workspace = true
+regex.workspace = true
+jsonschema.workspace = true
