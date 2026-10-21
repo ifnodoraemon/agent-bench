@@ -264,10 +264,25 @@ def build_mbpp(rng, used):
         r = ds[j]
         code = r["code"]
         sig = next((ln.strip() for ln in code.splitlines() if ln.strip().startswith("def ")), "")
-        name = sig[4:sig.find("(")].strip() if sig.startswith("def ") and "(" in sig else ""
+        code_name = sig[4:sig.find("(")].strip() if sig.startswith("def ") and "(" in sig else ""
+        # MBPP sanitized has a few rows whose tests call a different function
+        # name than the reference solution. The tests are authoritative.
+        builtins = {
+            "assert", "print", "len", "range", "str", "int", "float", "list",
+            "tuple", "dict", "set", "isinstance", "all", "any", "sum", "sorted",
+            "open", "Exception", "ValueError", "TypeError",
+        }
+        test_names = []
+        for ln in r["test_list"]:
+            for m in re.finditer(r"(?<![\w.])([A-Za-z_]\w*)\s*\(", ln):
+                if m.group(1) not in builtins:
+                    test_names.append(m.group(1))
+        entry = test_names[0] if test_names else code_name
+        if entry and entry != code_name and sig:
+            sig = sig.replace(f"def {code_name}(", f"def {entry}(", 1)
         prompt = r["prompt"].strip()
-        if name:
-            prompt += f"\n\nYour function must be named `{name}`. Signature hint:\n```python\n{sig}\n```"
+        if entry:
+            prompt += f"\n\nYour function must be named `{entry}`. Signature hint:\n```python\n{sig}\n```"
         test_code = "\n".join(list(r.get("test_imports") or []) + list(r["test_list"]))
         rows.append(base_case(
             f"mbpp_{i:03d}", "swe", "L2",
@@ -282,7 +297,7 @@ def build_mbpp(rng, used):
                 "official_metric": src["official_metric"],
                 "sample_seed": SEED,
                 "upstream_id": r["task_id"],
-                "entry_point": name,
+                "entry_point": entry,
             },
             test_code=test_code,
         ))
