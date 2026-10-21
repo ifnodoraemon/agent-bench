@@ -33,9 +33,12 @@ jobs:
       - name: Check bubblewrap availability
         run: |
           bwrap --version
-          bwrap --die-with-parent --unshare-all --ro-bind / / -- /bin/true \
-            && echo "bwrap smoke: OK" \
-            || echo "bwrap smoke: unavailable on this runner (tests use explicit fallback)"
+          if bwrap --die-with-parent --unshare-all --ro-bind / / -- /bin/true; then
+            echo "bwrap smoke: OK"
+          else
+            echo "bwrap smoke: unavailable on this runner; forcing explicit direct fallback for tests"
+            echo "AGENT_BENCH_BWRAP=/nonexistent/bwrap" >> "$GITHUB_ENV"
+          fi
 
       - name: Setup Rust
         uses: dtolnay/rust-toolchain@stable
