@@ -40,6 +40,7 @@
   - 硬规则失败不会再被 Judge “翻盘”。
 - **多信号证据核验（不是“正品认证”）**：
   - 6 个固定探针 + 5 个动态对抗探针（含鹈鹕骑自行车动态 SVG）+ 2 次交叉审讯 + 可选的 GSM8K/MMLU 小样本 benchmark 交叉核验。
+  - 鹈鹕 SVG 探针要求被测模型输出完整动画 SVG；建议 target `max_tokens >= 8192`，否则容易被截断。
   - 输出统一 `signals[]` 证据矩阵与 `evidence_score`；裁定只有 `Consistent / Suspicious / Inconclusive / HighRisk`，不再输出 `Authentic`。
   - 可选独立 LLM auditor 只提供点评，不改变确定性通过/失败；公开 benchmark 小样本是能力证据，不是身份证明。
   - 未生成 verified 基线漂移时 **不伪造“实测基线分”**；基线库中 `verified=false` 的条目只展示、不参与判定。
