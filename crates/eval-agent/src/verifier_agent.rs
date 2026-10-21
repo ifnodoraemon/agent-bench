@@ -442,7 +442,23 @@ fn generate_dynamic_probes(seed: u64) -> Vec<DynamicSpec> {
         distractor_rationale: "被物理风向诱导而忽视公鸡不下蛋的生物常识".to_string(),
     };
 
-    vec![algebraic_probe, tokenizer_probe, float_probe, rooster_probe]
+    let pelican_probe = DynamicSpec {
+        id: "dyn_probe_pelican_svg".to_string(),
+        title: "鹈鹕骑自行车动态 SVG 生成与结构自检".to_string(),
+        trap_type: "svg_pelican_bicycle".to_string(),
+        question: "请生成一个单文件、可动画的 SVG 图像：一只鹈鹕骑着自行车。\n\n硬性要求：\n1) 只输出 SVG（可以有 ```svg 围栏）\n2) 根元素 <svg> 必须带 viewBox\n3) 必须有 <title>Pelican riding a bicycle</title>\n4) 必须有 id=\"pelican\" 和 id=\"bicycle\"\n5) 使用 <animate> 或 <animateTransform> 或 @keyframes 实现动画\n6) 禁止 <script>、外部图片/字体/URL\n\n不要输出分析、规划或思考过程；最终只输出完整 SVG。".to_string(),
+        expected_answer: "VALID_ANIMATED_SVG".to_string(),
+        distractor_trap: "静态 SVG、外链图片或脚本".to_string(),
+        distractor_rationale: "用静态图或外部资源冒充动态 SVG".to_string(),
+    };
+
+    vec![
+        algebraic_probe,
+        tokenizer_probe,
+        float_probe,
+        rooster_probe,
+        pelican_probe,
+    ]
 }
 
 fn evaluate_dynamic_response(
@@ -512,7 +528,59 @@ fn evaluate_dynamic_response(
                 (false, "未明确识破公鸡不下蛋的前提".to_string())
             }
         }
+        "svg_pelican_bicycle" => evaluate_pelican_svg(text),
         _ => (false, "未知题型".to_string()),
+    }
+}
+
+fn evaluate_pelican_svg(text: &str) -> (bool, String) {
+    let lower = text.to_lowercase();
+    let Some(start) = lower.find("<svg") else {
+        return (false, "响应中没有 <svg> 根元素".to_string());
+    };
+    let Some(end_rel) = lower.rfind("</svg>") else {
+        return (false, "SVG 未闭合".to_string());
+    };
+    let svg = &text[start..end_rel + 6];
+    if svg.len() > 200_000 {
+        return (false, "SVG 超过 200KB 上限".to_string());
+    }
+    let svg_lower = svg.to_lowercase();
+    let mut problems = Vec::new();
+    if !svg_lower.contains("viewbox") {
+        problems.push("缺少 viewBox");
+    }
+    if !svg_lower.contains("<title")
+        || !svg_lower.contains("pelican")
+        || !svg_lower.contains("bicycle")
+    {
+        problems.push("缺少 Pelican riding a bicycle 的 <title>");
+    }
+    if !(svg_lower.contains("id=\"pelican\"") || svg_lower.contains("id='pelican'")) {
+        problems.push("缺少 id=\"pelican\"");
+    }
+    if !(svg_lower.contains("id=\"bicycle\"") || svg_lower.contains("id='bicycle'")) {
+        problems.push("缺少 id=\"bicycle\"");
+    }
+    if !(svg_lower.contains("<animate")
+        || svg_lower.contains("@keyframes")
+        || svg_lower.contains("animation:"))
+    {
+        problems.push("缺少 SVG/CSS 动画");
+    }
+    if svg_lower.contains("<script")
+        || svg_lower.contains("href=\"http")
+        || svg_lower.contains("xlink:href=\"http")
+    {
+        problems.push("包含 script 或外部 URL");
+    }
+    if svg_lower.contains("<image") {
+        problems.push("包含外部/位图 <image>");
+    }
+    if problems.is_empty() {
+        (true, format!("有效的动态鹈鹕 SVG（{} bytes）", svg.len()))
+    } else {
+        (false, format!("SVG 结构不合格: {}", problems.join("; ")))
     }
 }
 
@@ -598,6 +666,28 @@ mod tests {
         ));
     }
 
+    #[test]
+    fn pelican_svg_probe_validates_structure() {
+        let valid = r#"<svg viewBox="0 0 100 100"><title>Pelican riding a bicycle</title><g id="pelican"/><g id="bicycle"/><animate attributeName="x" from="0" to="10" dur="1s"/></svg>"#;
+        let (ok, reason) = evaluate_dynamic_response(
+            "svg_pelican_bicycle",
+            valid,
+            "VALID_ANIMATED_SVG",
+            "static",
+            "deepseek",
+        );
+        assert!(ok, "reason={reason}");
+        let static_svg = r#"<svg viewBox="0 0 100 100"><title>Pelican riding a bicycle</title><g id="pelican"/><g id="bicycle"/></svg>"#;
+        let (ok, _) = evaluate_dynamic_response(
+            "svg_pelican_bicycle",
+            static_svg,
+            "VALID_ANIMATED_SVG",
+            "static",
+            "deepseek",
+        );
+        assert!(!ok, "static SVG should fail");
+    }
+
     #[tokio::test]
     async fn test_verification_agent_audit_with_mock() {
         let mock = Arc::new(
@@ -608,7 +698,7 @@ mod tests {
         let report = VerificationAgent::audit(mock.as_ref(), None, Some("DeepSeek-R1"))
             .await
             .unwrap();
-        assert_eq!(report.dynamic_probes.len(), 4);
+        assert_eq!(report.dynamic_probes.len(), 5);
         assert!(report.probe_seed != 0);
         assert!(report.baseline_drift.is_none());
         assert!(!report.inconclusive);
