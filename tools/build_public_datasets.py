@@ -15,6 +15,7 @@ import hashlib
 import json
 import os
 import random
+import re
 import subprocess
 import sys
 import zipfile
@@ -415,12 +416,24 @@ def build_harmbench(rng, used):
     return out
 
 
+def sanitize_bfcl_name(name):
+    clean = re.sub(r"[^A-Za-z0-9_-]", "_", name)
+    clean = clean.strip("_") or "tool"
+    if not clean[0].isalnum():
+        clean = "tool_" + clean
+    return clean[:64]
+
+
 def normalize_bfcl_schema(value):
     if isinstance(value, dict):
         out = {}
         for k, v in value.items():
             if k == "type" and v == "dict":
                 out[k] = "object"
+            elif k == "type" and v in ("float", "double"):
+                out[k] = "number"
+            elif k == "type" and v in ("tuple", "list"):
+                out[k] = "array"
             else:
                 out[k] = normalize_bfcl_schema(v)
         return out
@@ -458,15 +471,22 @@ def build_bfcl(rng, used):
                 messages.append(f"{msg.get('role', 'user')}: {msg.get('content', '')}")
         prompt = "\n".join(messages) + "\n\nCall the appropriate function with valid JSON arguments."
         tools = []
+        name_map = {}
         for fn in r["function"]:
+            safe_name = sanitize_bfcl_name(fn["name"])
+            name_map[fn["name"]] = safe_name
             tools.append({
                 "type": "function",
                 "function": {
-                    "name": fn["name"],
+                    "name": safe_name,
                     "description": fn.get("description", ""),
                     "parameters": normalize_bfcl_schema(fn.get("parameters", {"type": "object", "properties": {}})),
                 },
             })
+        safe_gt = []
+        for entry in gt:
+            for name, args in entry.items():
+                safe_gt.append({name_map.get(name, sanitize_bfcl_name(name)): args})
         rows.append(base_case(
             f"bfcl_{i:03d}", "agent", "L2",
             ["agent", "tool_calling", "BFCL"],
@@ -480,8 +500,9 @@ def build_bfcl(rng, used):
                 "official_metric": src["official_metric"],
                 "sample_seed": SEED,
                 "upstream_id": r["id"],
+                "tool_name_map": name_map,
             },
-            reference_answer=json.dumps(gt, ensure_ascii=False),
+            reference_answer=json.dumps(safe_gt, ensure_ascii=False),
             tools=tools,
         ))
     return rows
@@ -566,7 +587,7 @@ def build_longbench(rng, used):
                 "Read the long context and answer the question with a short answer only. "
                 "Do not explain.\n\n[Context]\n"
                 f"{r['context']}\n\n[Question]\n{r['input']}\n\nAnswer:",
-                "llm_judge",
+                "f1",
                 {
                     "source_dataset": "THUDM/LongBench",
                     "source_revision": used["LongBench"]["revision"],

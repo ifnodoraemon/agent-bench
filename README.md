@@ -217,14 +217,14 @@ agent-bench/
 
 ## 限制与诚实声明
 
-1. **数据是公开 benchmark 的抽样子集，不是全量官方 leaderboard**：HumanEval/MBPP/MMLU/MMLU-Pro/TruthfulQA/GSM8K/MATH-500/LongBench/HarmBench/BFCL/IFEval 均记录来源、许可、版本和哈希；MATH-500、HarmBench 使用 LLM Judge 适配，LongBench 使用 token-F1 阈值，BFCL 使用函数名/参数匹配适配，IFEval 使用 21 类确定性规则子集，不能直接对标官方分数。
+1. **数据是公开 benchmark 的抽样子集，不是全量官方 leaderboard**：HumanEval/MBPP/MMLU/MMLU-Pro/TruthfulQA/GSM8K/MATH-500/LongBench/HarmBench/BFCL/IFEval 均记录来源、许可、版本和哈希；MATH-500、HarmBench 使用 LLM Judge 适配，LongBench 使用 token-F1 阈值（短答完全包含于参考时通过），BFCL 使用函数名/参数匹配适配，IFEval 使用 21 类确定性规则子集，不能直接对标官方分数。
 2. **难度是启发式**：L2–L5 按来源/ID 规则标注，已写入 `difficulty` 字段以保证筛选与统计一致；不是人工校准的认知难度。当前 L4+L5 = 429；总计 1,514 条（含 BFCL L2 100 与 IFEval L2 100）。
 3. **验真不是认证**：自报身份、固定探针、动态题都可以被中转商针对性适配；`verified=false` 的基线不做漂移判定；没有运行 benchmark 时绝不生成“实测基线分”。
 4. **Judge 不是 ground truth**：LLM Judge 可能被注入、偏好冗长答案或给出不一致分数；代码中已加边界/校验/成本记录，但仍需人工抽检。
 5. **Elo/Composite 是参考指标**：加权、Elo、efficiency index 都是启发式；不同题集/运行之间不可直接比较。
 6. **真实 Web/SQLite 工具的边界**：`search_web` 需要运维配置 `AGENT_BENCH_SEARCH_ENDPOINT`（SearXNG 兼容 JSON），未配置时明确报错、不返回 fixture；`database_query` 只允许 workspace 内 SQLite 的只读 SELECT/WITH（默认 `data/bench.db`），不支持写/ATTACH/PRAGMA。
 7. **前端**：不再在 API 失败时生成模拟验真报告，也不再合成渠道数据；基线库从 `/api/baselines` 加载，并显示 `verified` 标记。若后端不可用，页面显示错误/空态，而不是伪造数据。
-8. **长上下文/指令遵循**：v2 的 LongBench 子集是约 4.5k–202k 字符真实长文（中位约 51k），使用 token-F1 阈值；IFEval 只接入 21 类可确定性检查的指令（100 条），不是完整 25 类官方校验器，也不是 128k/1M 上下文压力测试。
+8. **长上下文/指令遵循**：v2 的 LongBench 子集是约 4.5k–202k 字符真实长文（中位约 51k），使用 token-F1 阈值并允许短答 containment；IFEval 只接入 21 类可确定性检查的指令（100 条），不是完整 25 类官方校验器，也不是 128k/1M 上下文压力测试。
 9. **Agentic 覆盖有限**：仅接入 BFCL v4 simple_python 100 条单轮函数调用；不含并行/多轮/缺参/无关函数等 BFCL 子集，也不是完整 Agent 环境。
 10. **公开数据许可**：数据集许可见 `datasets/MANIFEST.json` 与 `datasets/README.md`；MATH-500 的 HF card 未声明许可，按上游 MATH 的 MIT 记录，再分发前请自行核对上游条款。
 

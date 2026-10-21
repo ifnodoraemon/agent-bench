@@ -5,8 +5,10 @@ use anyhow::Result;
 use async_trait::async_trait;
 
 /// Token-level F1 evaluator for short-answer QA tasks such as LongBench.
-/// Pass threshold is 0.4; the official LongBench tasks report their own F1
-/// metrics, so this remains an adaptation and is labelled as such.
+/// Pass threshold is 0.4. A short answer whose tokens are all contained in a
+/// longer reference also passes (precision-oriented containment), because
+/// LongBench references are sometimes verbose while models answer with a span.
+/// This remains an adaptation, not the official full metric.
 #[derive(Default)]
 pub struct F1Evaluator;
 
@@ -57,15 +59,26 @@ impl Evaluator for F1Evaluator {
         };
         let score = Self::score(reference, &response.text);
         let rounded = (score * 1000.0).round() / 1000.0;
+        let expected = Self::tokens(reference);
+        let actual = Self::tokens(&response.text);
+        let contained = !actual.is_empty()
+            && !expected.is_empty()
+            && actual.iter().all(|token| expected.contains(token));
         if score >= 0.4 {
             let mut result = EvaluationResult::pass(format!(
                 "Token F1 {rounded:.3} >= 0.4 (reference: {reference})"
             ));
             result.score = rounded;
             Ok(result)
+        } else if contained {
+            let mut result = EvaluationResult::pass(format!(
+                "Short answer contained in reference (token F1 {rounded:.3}; reference: {reference})"
+            ));
+            result.score = rounded.max(0.5);
+            Ok(result)
         } else {
             Ok(EvaluationResult::fail(format!(
-                "Token F1 {rounded:.3} < 0.4 (reference: {reference})"
+                "Token F1 {rounded:.3} < 0.4 and answer is not contained in reference (reference: {reference})"
             )))
         }
     }
@@ -131,5 +144,25 @@ mod tests {
             .await
             .unwrap();
         assert!(!res.passed);
+    }
+
+    #[tokio::test]
+    async fn accepts_short_answer_contained_in_long_reference() {
+        let res = F1Evaluator
+            .evaluate(
+                &case("Himalchuli has three main peaks: East, West and North"),
+                &response("Himalchuli"),
+            )
+            .await
+            .unwrap();
+        assert!(res.passed, "{}", res.reason);
+        let bad = F1Evaluator
+            .evaluate(
+                &case("on the Cumberland Plain"),
+                &response("Sydney, Australia"),
+            )
+            .await
+            .unwrap();
+        assert!(!bad.passed);
     }
 }

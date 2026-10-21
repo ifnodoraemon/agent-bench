@@ -34,6 +34,15 @@ impl ToolCallEvaluator {
         };
         for (key, allowed) in expected_obj {
             let Some(actual_value) = actual_obj.get(key) else {
+                // BFCL marks optional arguments with "" or null in the
+                // acceptable-value list; an omitted optional argument matches.
+                let optional = allowed
+                    .as_array()
+                    .map(|values| values.iter().any(|v| v.is_null() || v.as_str() == Some("")))
+                    .unwrap_or(false);
+                if optional {
+                    continue;
+                }
                 return false;
             };
             let matched = match allowed.as_array() {
@@ -175,6 +184,21 @@ mod tests {
                     "solve_quadratic",
                     r#"{"a": 3, "b": -11, "c": -4, "root_type": "all"}"#,
                 ),
+            )
+            .await
+            .unwrap();
+        assert!(res.passed, "{}", res.reason);
+    }
+
+    #[tokio::test]
+    async fn accepts_omitted_optional_argument() {
+        let eval = ToolCallEvaluator;
+        let reference =
+            r#"[{"calculate_velocity":{"distance":[50],"duration":[2],"unit":["","km/h"]}}]"#;
+        let res = eval
+            .evaluate(
+                &case(reference),
+                &response("calculate_velocity", r#"{"distance":50,"duration":2}"#),
             )
             .await
             .unwrap();

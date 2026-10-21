@@ -1,7 +1,7 @@
 {
   "schema_version": 2,
   "suite": "agent-bench-v2-public",
-  "generated_at": "2026-10-21T08:03:57.276627+00:00",
+  "generated_at": "2026-10-21T08:22:59.470339+00:00",
   "sample_seed": 42,
   "sources": [
     {
@@ -145,7 +145,7 @@
     {
       "path": "foundation/long_context_longbench.jsonl",
       "count": 50,
-      "sha256": "d65dbd585b77faecd1e23fafd61657a7e05e2a1deb2b2d6a6f9fb85dc6a232e9",
+      "sha256": "02396a458d775583bf7de8aee5cf235ef43722d24161f54376a0e3dd455b83df",
       "source": "LongBench",
       "license": "MIT",
       "official_metric": "task F1/accuracy (token-F1 subset here)"
@@ -153,7 +153,7 @@
     {
       "path": "agent/tool_calling_bfcl.jsonl",
       "count": 100,
-      "sha256": "a08129b234142896dffbf2cf6597dcd4d101d5f76858af69b38b7206733bf34a",
+      "sha256": "1d07c6b0749c554f70e9ffb21626acf5a8e95e29e51a56e66d10b0d65fb3d798",
       "source": "BFCL",
       "license": "Apache-2.0",
       "official_metric": "AST accuracy (single-turn simple); adapted function/argument match here"

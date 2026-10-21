@@ -91,7 +91,11 @@ impl IfEvalEvaluator {
             "length_constraints:number_paragraphs" => {
                 let target = Self::kw_i64(kw, "num_paragraphs")
                     .ok_or_else(|| "missing num_paragraphs".to_string())?;
-                let actual = text.split("\n\n").filter(|s| !s.trim().is_empty()).count() as i64;
+                let actual = if text.contains("***") {
+                    text.split("***").filter(|s| !s.trim().is_empty()).count() as i64
+                } else {
+                    text.split("\n\n").filter(|s| !s.trim().is_empty()).count() as i64
+                };
                 if actual != target {
                     return Err(format!("paragraph count {actual} != {target}"));
                 }
@@ -114,13 +118,20 @@ impl IfEvalEvaluator {
             }
             "detectable_format:json_format" => {
                 let trimmed = text.trim();
-                let candidate = trimmed
-                    .strip_prefix("```json")
-                    .or_else(|| trimmed.strip_prefix("```"))
-                    .and_then(|s| s.strip_suffix("```"))
-                    .unwrap_or(trimmed)
-                    .trim();
-                if serde_json::from_str::<Value>(candidate).is_err() {
+                let lower = trimmed.to_ascii_lowercase();
+                let body_start = if lower.starts_with("```json") {
+                    7
+                } else if lower.starts_with("```") {
+                    3
+                } else {
+                    0
+                };
+                let mut candidate = &trimmed[body_start..];
+                if candidate.trim_end().ends_with("```") {
+                    let end = candidate.trim_end().len() - 3;
+                    candidate = &candidate[..end];
+                }
+                if serde_json::from_str::<Value>(candidate.trim()).is_err() {
                     return Err("response is not valid JSON".to_string());
                 }
             }
