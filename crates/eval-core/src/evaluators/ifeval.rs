@@ -185,7 +185,10 @@ impl IfEvalEvaluator {
             }
             "keywords:forbidden_words" => {
                 for word in Self::kw_strings(kw, "forbidden_words") {
-                    if lower.contains(&word.to_lowercase()) {
+                    let pattern = format!(r"(?i)\b{}\b", regex::escape(&word));
+                    let re = Regex::new(&pattern)
+                        .map_err(|e| format!("invalid forbidden word '{word}': {e}"))?;
+                    if re.is_match(text) {
                         return Err(format!("contains forbidden word '{word}'"));
                     }
                 }
@@ -243,8 +246,16 @@ impl IfEvalEvaluator {
             "detectable_content:postscript" => {
                 let marker = Self::kw_str(kw, "postscript_marker")
                     .ok_or_else(|| "missing postscript_marker".to_string())?;
-                if !text.trim_end().ends_with(marker) {
-                    return Err(format!("response does not end with postscript '{marker}'"));
+                // "Add a postscript starting with P.S." does not require the
+                // marker to be the very last characters: explanatory text may
+                // follow it. Check the final paragraph/tail instead.
+                let trimmed = text.trim_end();
+                let tail_start = trimmed.len().saturating_sub(600);
+                let tail = &trimmed[tail_start..];
+                if !tail.contains(marker) {
+                    return Err(format!(
+                        "response does not contain postscript '{marker}' near the end"
+                    ));
                 }
             }
             other => return Err(format!("unsupported IFEval instruction '{other}'")),
@@ -406,6 +417,48 @@ mod tests {
         assert!(
             !IfEvalEvaluator
                 .evaluate(&tc, &response("alpha"))
+                .await
+                .unwrap()
+                .passed
+        );
+    }
+
+    #[tokio::test]
+    async fn postscript_may_be_followed_by_text() {
+        let tc = case(
+            vec!["detectable_content:postscript"],
+            vec![json!({"postscript_marker": "P.S."})],
+        );
+        let ok = IfEvalEvaluator
+            .evaluate(&tc, &response("Body.\n\nP.S. one more note."))
+            .await
+            .unwrap();
+        assert!(ok.passed, "{}", ok.reason);
+        assert!(
+            !IfEvalEvaluator
+                .evaluate(&tc, &response("Body with no postscript."))
+                .await
+                .unwrap()
+                .passed
+        );
+    }
+
+    #[tokio::test]
+    async fn forbidden_words_use_word_boundaries() {
+        let tc = case(
+            vec!["keywords:forbidden_words"],
+            vec![json!({"forbidden_words": ["heute"]})],
+        );
+        assert!(
+            IfEvalEvaluator
+                .evaluate(&tc, &response("Das Wetter ist am heutigen Tag gut."))
+                .await
+                .unwrap()
+                .passed
+        );
+        assert!(
+            !IfEvalEvaluator
+                .evaluate(&tc, &response("Heute ist das Wetter gut."))
                 .await
                 .unwrap()
                 .passed

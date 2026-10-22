@@ -25,6 +25,35 @@ impl ToolCallEvaluator {
         false
     }
 
+    /// Match one candidate value. BFCL ground truth uses nested
+    /// list-of-acceptable-values structures (for example
+    /// `update_info: [{name: ["John Doe"], email: [...]}]`), so argument
+    /// comparison must be recursive.
+    fn match_candidate(actual: &Value, expected: &Value) -> bool {
+        if let (Some(actual_obj), Some(expected_obj)) = (actual.as_object(), expected.as_object()) {
+            return expected_obj.iter().all(|(key, allowed)| {
+                let Some(actual_value) = actual_obj.get(key) else {
+                    return false;
+                };
+                let matched = match allowed.as_array() {
+                    Some(values) => values
+                        .iter()
+                        .any(|candidate| Self::match_candidate(actual_value, candidate)),
+                    None => Self::match_candidate(actual_value, allowed),
+                };
+                matched
+            });
+        }
+        if let (Some(actual_arr), Some(expected_arr)) = (actual.as_array(), expected.as_array()) {
+            return actual_arr.len() == expected_arr.len()
+                && actual_arr
+                    .iter()
+                    .zip(expected_arr)
+                    .all(|(a, e)| Self::match_candidate(a, e));
+        }
+        Self::value_matches(actual, expected)
+    }
+
     fn args_match(expected: &Value, actual: &Value) -> bool {
         let Some(expected_obj) = expected.as_object() else {
             return false;
@@ -34,8 +63,7 @@ impl ToolCallEvaluator {
         };
         for (key, allowed) in expected_obj {
             let Some(actual_value) = actual_obj.get(key) else {
-                // BFCL marks optional arguments with "" or null in the
-                // acceptable-value list; an omitted optional argument matches.
+                // Optional argument: ground truth marks omission with ""/null.
                 let optional = allowed
                     .as_array()
                     .map(|values| values.iter().any(|v| v.is_null() || v.as_str() == Some("")))
@@ -48,8 +76,8 @@ impl ToolCallEvaluator {
             let matched = match allowed.as_array() {
                 Some(values) => values
                     .iter()
-                    .any(|candidate| Self::value_matches(actual_value, candidate)),
-                None => Self::value_matches(actual_value, allowed),
+                    .any(|candidate| Self::match_candidate(actual_value, candidate)),
+                None => Self::match_candidate(actual_value, allowed),
             };
             if !matched {
                 return false;
@@ -199,6 +227,23 @@ mod tests {
             .evaluate(
                 &case(reference),
                 &response("calculate_velocity", r#"{"distance":50,"duration":2}"#),
+            )
+            .await
+            .unwrap();
+        assert!(res.passed, "{}", res.reason);
+    }
+
+    #[tokio::test]
+    async fn matches_nested_bfcl_arguments() {
+        let eval = ToolCallEvaluator;
+        let reference = r#"[{"update_user_info":{"user_id":[43523],"update_info":[{"name":["John Doe"],"email":["johndoe@email.com"]}],"database":["CustomerInfo",""]}}]"#;
+        let res = eval
+            .evaluate(
+                &case(reference),
+                &response(
+                    "update_user_info",
+                    r#"{"user_id":43523,"update_info":{"name":"John Doe","email":"johndoe@email.com"},"database":"CustomerInfo"}"#,
+                ),
             )
             .await
             .unwrap();
