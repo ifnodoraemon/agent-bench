@@ -133,6 +133,20 @@ cargo run --bin agent-bench -- run --config eval_config.toml --sample-ratio 0.2 
 - 某个模型失败时会先保存成功模型的结果，然后以非 0 退出；不会再静默丢弃失败模型。
 - `--resume-failed` 要求结果文件存在且可解析；找不到会直接报错。
 
+### 4.1 离线重判（不请求模型）
+
+用于把 evaluator/grader 修复回放到已有结果，避免端点非确定性污染对比：
+
+```bash
+cargo run --bin agent-bench -- rescore \
+  results/dsv4.1-full-retry/eval_results_YYYYMMDD_HHMMSS.json \
+  --output-dir results/dsv4.1-full-rescored
+```
+
+- 只重判确定性 evaluator：exact_match、regex、json_schema、code_execution、numeric、multiple_choice、f1、ifeval。
+- `llm_judge`、`agent_trajectory`、`tool_call` 没有保存可复用的 judge/tool_calls，保留旧结果并计数为 `non-deterministic preserved`。
+- 不请求任何模型；可用于 F1 边界、答案解析、代码测试等 grader 修复。
+
 ### 5. 历史结果与 Elo
 
 ```bash

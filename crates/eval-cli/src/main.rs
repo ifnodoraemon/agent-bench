@@ -84,6 +84,20 @@ enum Commands {
         mock: bool,
     },
 
+    /// Re-score saved model outputs with current deterministic evaluators (no model calls)
+    Rescore {
+        /// Existing eval_results_*.json file
+        result_file: String,
+
+        /// Dataset file(s) or directory containing the original TestCases
+        #[arg(short, long, num_args = 1..)]
+        dataset: Option<Vec<String>>,
+
+        /// Output directory for rescored JSON/Markdown/HTML
+        #[arg(short, long)]
+        output_dir: Option<String>,
+    },
+
     /// Validate dataset JSON/JSONL format and schema integrity
     Validate {
         /// Paths to dataset files to validate
@@ -202,6 +216,18 @@ async fn main() -> Result<()> {
                 concurrency,
                 output_dir,
                 mock,
+            )
+            .await?;
+        }
+        Commands::Rescore {
+            result_file,
+            dataset,
+            output_dir,
+        } => {
+            commands::rescore::execute_rescore(
+                result_file,
+                dataset.unwrap_or_default(),
+                output_dir,
             )
             .await?;
         }
