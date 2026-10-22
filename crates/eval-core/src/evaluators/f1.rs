@@ -64,7 +64,9 @@ impl Evaluator for F1Evaluator {
         let contained = !actual.is_empty()
             && !expected.is_empty()
             && actual.iter().all(|token| expected.contains(token));
-        if score >= 0.4 {
+        // Compare the rounded value: token-F1 can be 0.39999999999999997 for
+        // a mathematically exact 0.4 boundary, which must pass.
+        if rounded >= 0.4 {
             let mut result = EvaluationResult::pass(format!(
                 "Token F1 {rounded:.3} >= 0.4 (reference: {reference})"
             ));
@@ -144,6 +146,19 @@ mod tests {
             .await
             .unwrap();
         assert!(!res.passed);
+    }
+
+    #[tokio::test]
+    async fn accepts_exact_f1_threshold_at_rounding_boundary() {
+        // This pair produces raw F1 0.39999999999999997, equivalent to 0.4.
+        let reference = "The sides of the fuselage are sloped to create a conical section when the fuselage is formed.";
+        let output = "Because tumbled-home sides make the fuselage section conical, causing the top longeron to form an elliptical “banana” shape unless the side panel is developed to true dimensions.";
+        let res = F1Evaluator
+            .evaluate(&case(reference), &response(output))
+            .await
+            .unwrap();
+        assert!(res.passed, "{}", res.reason);
+        assert!(res.score >= 0.4);
     }
 
     #[tokio::test]
