@@ -143,8 +143,9 @@ cargo run --bin agent-bench -- rescore \
   --output-dir results/dsv4.1-full-rescored
 ```
 
-- 只重判确定性 evaluator：exact_match、regex、json_schema、code_execution、numeric、multiple_choice、f1、ifeval。
-- `llm_judge`、`agent_trajectory`、`tool_call` 没有保存可复用的 judge/tool_calls，保留旧结果并计数为 `non-deterministic preserved`。
+- 只重判确定性 evaluator：exact_match、regex、json_schema、code_execution、numeric、multiple_choice、f1、ifeval、tool_call。
+- 结果 JSON 现在持久化 `tool_calls` 与 `finish_reason`，因此新产生的 BFCL 结果可以离线重判；旧版结果没有 `tool_calls` 时保留旧值并计数为 `non-deterministic preserved`。
+- `llm_judge`、`agent_trajectory` 仍保留旧结果（需要 judge 调用/轨迹上下文）。
 - 不请求任何模型；可用于 F1 边界、答案解析、代码测试等 grader 修复。
 
 ### 5. 历史结果与 Elo

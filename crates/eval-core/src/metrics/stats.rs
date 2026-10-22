@@ -32,6 +32,12 @@ pub struct CaseResult {
     pub model_output: String,
     #[serde(default)]
     pub reasoning_content: Option<String>,
+    /// Persisted tool calls (BFCL/tool-calling) so offline rescore does not
+    /// need to call the model again.
+    #[serde(default)]
+    pub tool_calls: Option<Vec<crate::model::ToolCall>>,
+    #[serde(default)]
+    pub finish_reason: Option<String>,
     #[serde(default)]
     pub trajectory_steps: Option<Vec<serde_json::Value>>,
     pub error: Option<String>,

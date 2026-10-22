@@ -358,6 +358,8 @@ impl BenchmarkOrchestrator {
                 cost_usd: trajectory.estimated_cost_usd + eval_res.cost_usd,
                 model_output: clean_output,
                 reasoning_content: extracted_reasoning,
+                tool_calls: None,
+                finish_reason: None,
                 trajectory_steps: steps_json,
                 error: None,
             });
@@ -438,6 +440,8 @@ impl BenchmarkOrchestrator {
                     cost_usd: usage_cost,
                     model_output: String::new(),
                     reasoning_content: None,
+                    tool_calls: None,
+                    finish_reason: None,
                     trajectory_steps: None,
                     error: Some(err_msg),
                 });
@@ -510,6 +514,8 @@ impl BenchmarkOrchestrator {
             cost_usd: usage_cost + eval_res.cost_usd,
             model_output: model_resp.text,
             reasoning_content: model_resp.reasoning_content,
+            tool_calls: model_resp.tool_calls,
+            finish_reason: model_resp.finish_reason,
             trajectory_steps: None,
             error: None,
         })
@@ -534,6 +540,8 @@ fn cancelled_result(meta: &CaseMeta) -> CaseResult {
         cost_usd: 0.0,
         model_output: String::new(),
         reasoning_content: None,
+        tool_calls: None,
+        finish_reason: None,
         trajectory_steps: None,
         error: Some("Run cancelled".to_string()),
     }
@@ -557,6 +565,8 @@ fn error_result(meta: &CaseMeta, reason: String, latency_ms: u64) -> CaseResult 
         cost_usd: 0.0,
         model_output: String::new(),
         reasoning_content: None,
+        tool_calls: None,
+        finish_reason: None,
         trajectory_steps: None,
         error: Some(reason),
     }
@@ -581,6 +591,8 @@ fn timeout_result(meta: &CaseMeta, timeout_secs: u64) -> CaseResult {
         cost_usd: 0.0,
         model_output: String::new(),
         reasoning_content: None,
+        tool_calls: None,
+        finish_reason: None,
         trajectory_steps: None,
         error: Some(reason),
     }
@@ -605,6 +617,8 @@ fn panic_result(meta: &CaseMeta, join_err: tokio::task::JoinError) -> CaseResult
         cost_usd: 0.0,
         model_output: String::new(),
         reasoning_content: None,
+        tool_calls: None,
+        finish_reason: None,
         trajectory_steps: None,
         error: Some(reason),
     }

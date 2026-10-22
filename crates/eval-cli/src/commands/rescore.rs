@@ -4,6 +4,7 @@ use eval_core::dataset::{Dataset, DatasetLoader, EvaluationType, TestCase};
 use eval_core::evaluators::{
     CodeSandboxEvaluator, Evaluator, ExactMatchEvaluator, F1Evaluator, IfEvalEvaluator,
     JsonSchemaEvaluator, MultipleChoiceEvaluator, NumericEvaluator, RegexEvaluator,
+    ToolCallEvaluator,
 };
 use eval_core::metrics::{CaseResult, ModelBenchmarkSummary};
 use eval_core::model::{ModelResponse, TokenUsage};
@@ -67,6 +68,7 @@ fn is_deterministic(eval_type: &EvaluationType) -> bool {
             | EvaluationType::MultipleChoice
             | EvaluationType::F1
             | EvaluationType::IfEval
+            | EvaluationType::ToolCall
     )
 }
 
@@ -74,8 +76,7 @@ fn response_from_case(case: &CaseResult) -> ModelResponse {
     ModelResponse {
         text: case.model_output.clone(),
         reasoning_content: case.reasoning_content.clone(),
-        // CaseResult does not persist tool_calls; tool_call cases are skipped.
-        tool_calls: None,
+        tool_calls: case.tool_calls.clone(),
         usage: TokenUsage {
             prompt_tokens: case.prompt_tokens,
             completion_tokens: case.completion_tokens,
@@ -85,7 +86,7 @@ fn response_from_case(case: &CaseResult) -> ModelResponse {
         ttft: case.ttft_ms.map(Duration::from_millis),
         tokens_per_second: case.tps,
         estimated_cost_usd: case.cost_usd,
-        finish_reason: None,
+        finish_reason: case.finish_reason.clone(),
         raw_response: None,
     }
 }
@@ -113,7 +114,8 @@ async fn rescore_case(case: &mut CaseResult, test_case: &TestCase) -> Result<()>
         }
         EvaluationType::F1 => F1Evaluator.evaluate(test_case, &response).await?,
         EvaluationType::IfEval => IfEvalEvaluator.evaluate(test_case, &response).await?,
-        EvaluationType::LlmJudge | EvaluationType::AgentTrajectory | EvaluationType::ToolCall => {
+        EvaluationType::ToolCall => ToolCallEvaluator.evaluate(test_case, &response).await?,
+        EvaluationType::LlmJudge | EvaluationType::AgentTrajectory => {
             unreachable!("non-deterministic evaluator must be filtered before rescore")
         }
     };
@@ -157,6 +159,13 @@ pub async fn execute_rescore(
                 continue;
             };
             if !is_deterministic(&test_case.eval_type) {
+                skipped += 1;
+                continue;
+            }
+            // Older result files did not persist tool_calls. Preserve those
+            // results rather than turning a previously passing call into a
+            // spurious "no tool_calls" failure.
+            if test_case.eval_type == EvaluationType::ToolCall && case.tool_calls.is_none() {
                 skipped += 1;
                 continue;
             }
@@ -205,6 +214,7 @@ pub async fn execute_rescore(
 mod tests {
     use super::*;
     use eval_core::dataset::Category;
+    use eval_core::model::{FunctionCall, ToolCall};
 
     fn f1_case() -> TestCase {
         TestCase {
@@ -244,9 +254,72 @@ mod tests {
             cost_usd: 0.0,
             model_output: "Norman".to_string(),
             reasoning_content: None,
+            tool_calls: None,
+            finish_reason: None,
             trajectory_steps: None,
             error: None,
         }
+    }
+
+    fn tool_case() -> TestCase {
+        TestCase {
+            id: "tool_rescore".to_string(),
+            name: None,
+            category: Category::Agent,
+            difficulty: None,
+            tags: vec![],
+            prompt: "q".to_string(),
+            system_prompt: None,
+            reference_answer: Some(r#"[{"add":{"a":[1],"b":[2]}}]"#.to_string()),
+            eval_type: EvaluationType::ToolCall,
+            criteria: None,
+            schema: None,
+            test_code: None,
+            tools: None,
+            max_turns: None,
+            metadata: HashMap::new(),
+        }
+    }
+
+    fn tool_result() -> CaseResult {
+        CaseResult {
+            test_case_id: "tool_rescore".to_string(),
+            test_case_name: None,
+            category: Category::Agent,
+            difficulty: None,
+            passed: false,
+            score: 0.0,
+            dimensions: None,
+            reason: "stale".to_string(),
+            latency_ms: 10,
+            ttft_ms: None,
+            tps: 0.0,
+            prompt_tokens: 1,
+            completion_tokens: 1,
+            cost_usd: 0.0,
+            model_output: String::new(),
+            reasoning_content: None,
+            tool_calls: Some(vec![ToolCall {
+                id: "call_1".to_string(),
+                tool_type: "function".to_string(),
+                function: FunctionCall {
+                    name: "add".to_string(),
+                    arguments: r#"{"a":1,"b":2}"#.to_string(),
+                },
+            }]),
+            finish_reason: Some("tool_calls".to_string()),
+            trajectory_steps: None,
+            error: None,
+        }
+    }
+
+    #[tokio::test]
+    async fn rescored_tool_call_uses_persisted_tool_calls() {
+        let tc = tool_case();
+        let mut old = tool_result();
+        rescore_case(&mut old, &tc).await.unwrap();
+        assert!(old.passed);
+        assert!(old.reason.contains("Tool call matched"));
     }
 
     #[tokio::test]
